@@ -1,10 +1,10 @@
-# Slidev for IntelliJ, Prototyp 0.1.14
+# Slidev for IntelliJ, Prototyp 0.1.15
 
 Dieses Projekt ergänzt IntelliJ um einen Slidev-Editor mit Folienübersicht, einer echten Slidev-Vorschau und einem Präsentationsfenster.
 
 ## Status
 
-Dies ist ein Quellcode-Prototyp. 43 Parser-, Diagnose- und Navigationschecks sowie 49 Metadaten- und Schemaprüfungen sowie 68 zusätzliche Completion- und Dateisystemprüfungen bestehen. Zusätzlich bestehen 33 reine Java-Prüfungen für Ausdrucksmaskierung und Protokoll sowie gesonderte Tests gegen den echten Vue-Compiler und den Node-Unterprozess. Die neue IntelliJ-Integration für YAML, Completion und Live-Ausdrucksprüfung ist hier noch nicht durch einen vollständigen Plugin-Build oder IDE-Test validiert. Ein vollständiger Plugin-Build und ein Laufzeittest in IntelliJ waren in der Erstellungsumgebung nicht möglich. Der Gradle-Wrapper konnte seine Distribution wegen des eingeschränkten Netzwerkzugangs des Java-Prozesses nicht herunterladen. Außerdem ist hier nur eine Java-17-Laufzeit vorhanden; die Zielplattform erfordert ein JDK 25.
+Dies ist ein Quellcode-Prototyp. 43 Parser-, Diagnose- und Navigationschecks sowie 49 Metadaten- und Schemaprüfungen sowie 68 zusätzliche Completion- und Dateisystemprüfungen bestehen. Zusätzlich bestehen 33 reine Java-Prüfungen für Ausdrucksmaskierung und Protokoll sowie gesonderte Tests gegen den echten Vue-Compiler und den Node-Unterprozess. 113 weitere Prüfungen für Projektbezüge und Navigationsziele bestehen. Die neue IntelliJ-Integration für YAML, Completion, Live-Ausdrucksprüfung und Dateinavigation ist hier noch nicht durch einen vollständigen Plugin-Build oder IDE-Test validiert. Ein vollständiger Plugin-Build und ein Laufzeittest in IntelliJ waren in der Erstellungsumgebung nicht möglich. Der Gradle-Wrapper konnte seine Distribution wegen des eingeschränkten Netzwerkzugangs des Java-Prozesses nicht herunterladen. Außerdem ist hier nur eine Java-17-Laufzeit vorhanden; die Zielplattform erfordert ein JDK 25.
 
 Die enthaltene Projekt-ZIP ist **kein installierbares IntelliJ-Plugin**. Erst `buildPlugin` erzeugt das installierbare Paket.
 
@@ -238,6 +238,24 @@ node scripts/test-expressions.cjs /pfad/zur/praesentation/slides.md
 
 Der vollständige Plugin-Build und die Ausführung des neuen ExternalAnnotator in IntelliJ bleiben in der Erstellungsumgebung ungeprüft.
 
+## Projektbezüge und Dateinavigation (0.1.15)
+
+In erkannten Slidev-Präsentationen werden statische lokale Verweise geprüft, unabhängig von Node, Build und Preview:
+
+* `src` in konventionellen Frontmatter-Blöcken, einschließlich Folienauswahl wie `./pages/intro.md#2,5-7`.
+* Inline-Bilder in Markdown wie `![Bild](./images/cover.png)`, auch mit kodierten Leerzeichen, geklammerten Pfaden und optionalem Titel in Anführungszeichen.
+* Statische `src`-Attribute an `<img>`, Bildverweise an SVG-`<image>` und `poster` an `<SlidevVideo>`.
+* Einfache `image`- und bildartige `background`-Werte in Metadaten, einschließlich einzelner CSS-`url(...)`-Werte.
+* `layout` in Folienmetadaten und unter `defaults` im Headmatter.
+
+Relative Dateien werden ausgehend vom Verzeichnis der jeweiligen Markdown-Datei gesucht. Ein Bildpfad mit führendem `/`, etwa `/logo.svg`, wird in `public/` gesucht, nicht im Dateisystemwurzelverzeichnis. Berücksichtigt werden das Dateiverzeichnis, das erkannte Projekt sowie das gefundene Theme und der installierte Slidev-Client. Layout-Dateien werden in deren `layouts/` gesucht. Projektdateien haben Vorrang. Für bekannte eingebaute Layoutnamen erscheint keine Fehlmeldung, wenn deren Quelldatei lokal nicht aufgelöst werden kann.
+
+Fehlende lokale Dateien erhalten eine Warnung direkt am Verweis. Für unbekannte Layoutnamen erscheint nur eine schwache Meldung mit dem Hinweis, dass Addon- und Vite-Layouts nicht geprüft wurden. Externe URLs werden nicht abgerufen. CSS-Farben, Gradienten, dynamische Vue-Bindungen, bekannte Aliasformen und Verweise in Codebeispielen oder Notizen werden ausgespart.
+
+Mit der IntelliJ-Aktion **Go to Declaration or Usages** kann zu einer vorhandenen Zieldatei gesprungen werden, je nach Keymap über **Cmd+B / Ctrl+B** oder den entsprechenden modifizierten Mausklick. Bei einem Import mit Folienbereich wird zunächst die Markdown-Datei geöffnet. Ein Sprung zur konkreten importierten Folie und die Synchronisierung des gesamten importierten Decks sind noch nicht enthalten.
+
+Die Navigation berücksichtigt auch native YAML-/HTML-Injektionen und arbeitet ausschließlich in erkannten Slidev-Dateien. Die native Aktion und ihre Mausdarstellung müssen noch in einer echten IDE geprüft werden. Die Auflösung bleibt konventionell: Markdown-Referenzbilder mit separater Linkdefinition, komplexe YAML-Formen, unquoted HTML-Attribute, beliebige Addons und dynamische Vite-Aliase sind noch nicht vollständig unterstützt. Es werden keine Dateien angelegt oder verändert.
+
 ## Beispiel und praktischer Abnahmetest
 
 Das Verzeichnis `examples` enthält eine kleine Präsentation mit Folienmetadaten, Klickanimationen und einem Codeblock mit scheinbaren Folientrennern. Die Beispielabhängigkeiten verwenden `latest`; nach der Installation die erzeugte Lockdatei behalten, wenn das Beispiel reproduzierbar weiterverwendet werden soll.
@@ -276,7 +294,7 @@ Die Implementierung verwendet Java und Gradle Kotlin DSL. Weitere Sprachfunktion
 
 **Datei erkannt, aber kein Slidev-Editor erstellt:** Wenn `idea.log` einen Provider-accepted-Eintrag, aber keinen Creating-editor-Eintrag enthält, wird der Provider möglicherweise durch eine andere Editorintegration unterdrückt. Zur Eingrenzung zusätzliche Markdown-Editorplugins wie Markdown Pro vorübergehend deaktivieren und die IDE neu starten. Die eingebaute Markdown-Unterstützung muss aktiviert bleiben. Eine solche Unterdrückung ist anhand dieser Meldungen allein nicht bewiesen.
 
-**Treat as Slidev öffnet nur den normalen Editor:** Ab Version 0.1.4 prüft die Aktion nach dem Öffnen, ob der Slidev-Editor verfügbar ist. Falls nicht, erscheint ein Dialog mit den verfügbaren Editorklassen. In `idea.log` nach `[Slidev 0.1.14]` suchen: Die Einträge unterscheiden explizite Zuordnung, Erkennung durch den Provider und Editor-Erstellung. Bei einem Fehler während der Erstellung folgt der Stacktrace. Unter Settings > Plugins prüfen, dass Version 0.1.14 installiert ist.
+**Treat as Slidev öffnet nur den normalen Editor:** Ab Version 0.1.4 prüft die Aktion nach dem Öffnen, ob der Slidev-Editor verfügbar ist. Falls nicht, erscheint ein Dialog mit den verfügbaren Editorklassen. In `idea.log` nach `[Slidev 0.1.15]` suchen: Die Einträge unterscheiden explizite Zuordnung, Erkennung durch den Provider und Editor-Erstellung. Bei einem Fehler während der Erstellung folgt der Stacktrace. Unter Settings > Plugins prüfen, dass Version 0.1.15 installiert ist.
 
 **Package org.cef.browser oder org.cef.handler ist nicht vorhanden:** Im Gradle-Build müssen beide Module `intellij.platform.ui.jcef` und `intellij.libraries.jcef` eingebunden sein. Das erste enthält die IntelliJ-Wrapper, das zweite die zugrunde liegenden JCEF-Klassen. Diese Quellcodefassung enthält die zusätzliche Abhängigkeit. Die Laufzeitabhängigkeit `com.intellij.modules.jcef` in `plugin.xml` ersetzt die Compile-Abhängigkeit nicht.
 

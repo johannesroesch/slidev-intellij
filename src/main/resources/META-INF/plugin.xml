@@ -10,6 +10,7 @@
     <extensions defaultExtensionNs="com.intellij">
         <annotator language="Markdown" implementationClass="dev.slidev.intellij.SlidevAnnotator"/>
         <externalAnnotator language="Markdown" implementationClass="dev.slidev.intellij.SlidevExpressionAnnotator"/>
+        <gotoDeclarationHandler implementation="dev.slidev.intellij.SlidevDeclarationHandler" order="first"/>
         <completion.contributor language="Markdown" implementationClass="dev.slidev.intellij.SlidevCompletionContributor"/>
         <completion.contributor language="yaml" implementationClass="dev.slidev.intellij.SlidevCompletionContributor"/>
         <completion.contributor language="HTML" implementationClass="dev.slidev.intellij.SlidevCompletionContributor"/>

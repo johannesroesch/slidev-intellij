@@ -8,6 +8,29 @@ import java.util.regex.Pattern;
 /** Bounded discovery of conventional local files. No package execution or installation. */
 public final class ProjectCompletions {
     public record Catalog(Map<String,String> layouts,Map<String,String> components) {}
+    public record Roots(Path entryDirectory,Path project,Path theme,Path client) {}
+    public static Roots roots(Path entry,String source,Runnable check) {
+        Path directory=entry.toAbsolutePath().normalize().getParent();
+        Path project=directory;
+        for(Path candidate=directory;candidate!=null;candidate=candidate.getParent()) {
+            check.run();
+            if(Files.isRegularFile(candidate.resolve("package.json"))) {project=candidate;break;}
+        }
+        Path client=null;
+        for(Path candidate=project;candidate!=null && client==null;candidate=candidate.getParent()) {
+            check.run();
+            Path direct=candidate.resolve("node_modules/@slidev/client");
+            if(Files.isDirectory(direct)) {client=direct;break;}
+            Path cli=candidate.resolve("node_modules/@slidev/cli/bin/slidev.mjs");
+            if(Files.isRegularFile(cli)) try {
+                for(Path real=cli.toRealPath().getParent();real!=null;real=real.getParent()) {
+                    check.run();Path nested=real.resolve("node_modules/@slidev/client");
+                    if(Files.isDirectory(nested)) {client=nested;break;}
+                }
+            } catch(IOException | SecurityException ignored) {}
+        }
+        return new Roots(directory,project,resolveTheme(project,theme(source),check),client);
+    }
     public static Catalog discover(Path entry,String source,Runnable checkCanceled) {
         Map<String,String> layouts=new TreeMap<>(), components=new TreeMap<>();
         Path directory=entry.toAbsolutePath().normalize().getParent();

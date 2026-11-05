@@ -402,3 +402,55 @@ References:
 * https://github.com/vuejs/core/blob/main/packages/compiler-core/src/errors.ts
 * https://github.com/vuejs/core/blob/main/packages/compiler-core/src/compile.ts
 * https://github.com/vuejs/core/blob/main/packages/compiler-dom/src/index.ts
+
+
+## 0.1.15: Static project references and declaration targets
+
+* ProjectReferences extracts conventional metadata scalar references, inline
+  Markdown images, quoted static HTML image/SVG attributes and video posters.
+  Masks examples, notes and interpolations; avoids treating image-like text
+  inside attributes as Markdown. Supports spaces/parentheses, basic HTML entities,
+  URL decoding, query/fragment suffixes and import slide ranges.
+* Resolves imports/assets relative to the current Markdown file. URL-root images
+  map to public/ with a containment check; they are not OS absolute image paths.
+  Layout lookup prefers entry/project directories, then theme and installed client.
+  Client lookup follows the real CLI path for isolated pnpm layouts. Known
+  built-ins remain valid without resolved source. Unknown layout warnings explicitly
+  qualify the lack of addon/Vite resolver support.
+* Added metadata/body reference warnings to the Markdown annotator and a scoped
+  GotoDeclarationHandler with injection-to-host offset mapping. Declaration
+  navigation returns the target PSI file; it does not mutate files or use indexes.
+  Import fragments open the file, not an exact slide range.
+* New referencesTest task is required by check/test and the standalone core script.
+
+Executed:
+* PASS: 113 reference/target checks with actual temporary files: relative/public
+  paths, imports with ranges, Unicode/BOM/CRLF, spaces, plus/percent/hash handling,
+  entities, CSS URLs, dynamic/remote exclusions, missing files, root containment,
+  layout precedence, local/npm themes, a pnpm-style CLI symlink and cancellation.
+  The symlink-only fixture reports SKIP where the host cannot create symlinks.
+* PASS: ECJ/Java 17 core and Swing compilation; all prior 43 parser/navigation,
+  49 metadata, 68 completion and 33 expression checks; Swing and JS bridge tests.
+* NOT RUN: JDK 25 SDK compilation, Plugin Verifier and native warning/Go to
+  Declaration behavior in IntelliJ. Gradle remains blocked while fetching its
+  distribution from the local Java process. This validation does not establish
+  the new SDK-facing navigation handler's runtime behavior.
+
+Manual IDE acceptance:
+1. Build/install 0.1.15 with JDK 25. In a recognized Slidev file add a missing
+   src reference and missing inline/HTML image. Expect local reference warnings.
+2. Create the target files, refresh and re-run highlighting; warnings should clear.
+   Put the caret in each path and invoke Go to Declaration (including an existing
+   injected YAML headmatter region). Confirm the correct Markdown/image file opens.
+3. Test /logo.svg against project/public/logo.svg and layout: my-layout against
+   layouts/my-layout.vue. Test project overrides and an installed/local theme.
+4. Test a misspelled layout: weak warning with addon/Vite qualification; test
+   default/full: no false warning merely because source discovery failed.
+5. Confirm URLs, :src bindings, YAML block strings, code examples, notes and CSS
+   colors do not produce local-file warnings. Ordinary Markdown is unaffected.
+
+References:
+* https://sli.dev/features/importing-slides
+* https://sli.dev/features/bundle-remote-assets
+* https://sli.dev/builtin/layouts
+* https://plugins.jetbrains.com/docs/intellij/intellij-platform-extension-point-list.html

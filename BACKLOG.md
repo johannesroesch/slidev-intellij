@@ -1,5 +1,15 @@
 # Backlog
 
+## 0.1.15: Projektbezüge
+
+* [x] Statische src-, Bild- und Layout-Bezüge erkennen und lokal prüfen.
+* [x] Relative Dateien, öffentliche Assets und Projekt-/Theme-/Client-Layouts unterscheiden.
+* [x] Vorhandene Dateien über Go to Declaration öffnen, auch aus injizierten Bereichen.
+* [x] Externe/dynamische Referenzen und Codebeispiele aussparen.
+* [x] 113 reine Dateisystem-/Offset-/Navigationszielprüfungen.
+* [ ] Native Warnungen und Dateinavigation in IntelliJ 2026.2/2026.3 prüfen.
+* [ ] Markdown-Referenzbilder, erweiterte YAML-Formen und dynamische Resolver unterstützen.
+
 ## 0.1.14: Live-Ausdrucksprüfung
 
 * [x] Hintergrundprüfung von Vue-Ausdrücken mit lokal installiertem Vue-Compiler, ohne Build oder Preview.
@@ -8,7 +18,7 @@
 * [x] Einstellbare Checkbox, standardmäßig aktiv; Node-Konfiguration wiederverwenden.
 * [x] Tests mit echtem Vue-Compiler und Node-Prozess einschließlich pnpm-Auflösung.
 * [ ] ExternalAnnotator und Checkbox in echter IDE praktisch prüfen.
-* [ ] Projektbezüge prüfen: fehlende src-Dateien, Bilder und Layouts mit Navigation.
+* [x] Erste Prüfung lokaler src-Dateien, Bilder und Layouts mit Navigation.
 * [ ] Quick Fixes für typische Metadaten-/Strukturfehler ergänzen.
 * [ ] Importierte Folien für Gliederung, Diagnosen und Synchronisierung auflösen.
 

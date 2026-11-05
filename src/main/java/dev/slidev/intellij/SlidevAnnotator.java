@@ -10,6 +10,8 @@ import com.intellij.psi.*;
 import com.intellij.psi.util.PsiTreeUtil;
 import dev.slidev.intellij.core.MetadataRegions;
 import dev.slidev.intellij.core.SlidevSchema;
+import dev.slidev.intellij.core.ProjectReferences;
+import java.nio.file.Path;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.yaml.psi.*;
 import java.util.HashSet;
@@ -20,6 +22,12 @@ public final class SlidevAnnotator implements Annotator, DumbAware {
         if(!(element instanceof PsiFile file) || !SlidevLanguageSupport.accepts(file)) return;
         String source=file.getText();
         var scan=MetadataRegions.scan(source);
+        for(var resolution:ProjectReferences.analyze(Path.of(file.getVirtualFile().getPath()),source,ProgressManager::checkCanceled)) {
+            if(resolution.warning()==null)continue;
+            var reference=resolution.reference();
+            report(holder,source.length(),reference.start(),reference.end(),resolution.warning(),
+                reference.kind()==ProjectReferences.Kind.LAYOUT?HighlightSeverity.WEAK_WARNING:HighlightSeverity.WARNING);
+        }
         for(var problem:scan.problems()) report(holder,source.length(),problem.start(),problem.end(),problem.message(),HighlightSeverity.WARNING);
         var type=SlidevLanguageSupport.yamlType();
         var highlighter=SyntaxHighlighterFactory.getSyntaxHighlighter(type,file.getProject(),null);

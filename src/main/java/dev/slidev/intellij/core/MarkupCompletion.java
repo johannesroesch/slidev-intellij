@@ -88,7 +88,11 @@ public final class MarkupCompletion {
     }
     /** Blank Markdown-only regions while preserving UTF-16 offsets for Vue diagnostics. */
     public static String vueTemplate(String source) {
-        boolean[] masked=mask(source,true);char[] result=source.toCharArray();
+        return blank(source,mask(source,true));
+    }
+    public static String referenceText(String source) {return blank(source,mask(source,false));}
+    private static String blank(String source,boolean[] masked) {
+        char[] result=source.toCharArray();
         for(int i=0;i<result.length;i++) if(masked[i] && result[i]!='\n' && result[i]!='\r') result[i]=' ';
         return new String(result);
     }
