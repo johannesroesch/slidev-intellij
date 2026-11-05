@@ -454,3 +454,66 @@ References:
 * https://sli.dev/features/bundle-remote-assets
 * https://sli.dev/builtin/layouts
 * https://plugins.jetbrains.com/docs/intellij/intellij-platform-extension-point-list.html
+
+## 0.1.16: Quick fixes, imported decks and preview recovery
+
+* Added guarded native intentions for known metadata values, similar layout names,
+  unambiguous fence/frontmatter closure and explicit missing Markdown source creation.
+  Existing files are never overwritten; stale text snapshots invalidate fixes.
+* Global deck mapping uses the installed @slidev/parser/fs in a limited Node process.
+  Supports both the 52.14.1 string-root API and 52.20.1 options-root API. Actual CLI
+  source confirms virtual IDs contain the source filename and global slide number.
+  Import ranges are selected before recursive expansion; hidden/disabled slides and
+  repeated imports follow the native parser. Root imports use the entry directory.
+* Unsaved source overrides, missing-source watches, cancellation, generation checks,
+  workspace associations and source-editor caching connect the model to the editor.
+  Code switches sources inside a stable Swing host, without replacing the browser.
+  Error-list targets include the actual source file. Build line mapping remains a
+  slide-relative heuristic without transform source maps.
+* Mapping has timeout/size/depth limits and reports unavailable dependencies, cycles,
+  missing sources and detected entry-level custom preparsers. Theme/addon preparsers
+  and dynamic Vite resolvers are not executed and can still cause differing mappings.
+* Show Slidev log opens a modeless window sharing the recent session output, even
+  while the inline console is hidden. Restart preview is reachable in the toolbar
+  and log window. It closes the previous session, saves participating documents and
+  starts a new session after mapping, retaining earlier output with start markers.
+  Initialization exceptions also include their stack trace in this visible log.
+  There is no automatic crash restart loop and no persisted log archive.
+
+Executed:
+* PASS: ECJ/Java 17 compilation of all core tests and the real Swing view.
+* PASS: existing 43 parser/navigation, 49 metadata, 68 completion and 113 reference
+  checks; 39 expression checks including six actual Node subprocess cases.
+* PASS: 21 pure quick-fix/graph tests plus seven actual Java-to-Node parser tests
+  (28 total), separately against installed parser 52.14.1 and 52.20.1.
+* PASS: scripts/test-imports.cjs against both parser versions, including nested/ranged
+  imports, repeats, hidden slides, dirty overrides, missing files, cycles, custom
+  preparser detection and the actual subprocess protocol.
+* PASS: actual Vue compiler fixture, navigation/fullscreen fixtures and headless
+  Swing checks including source-child replacement with stable browser ancestry.
+* BLOCKED: bash gradlew check buildPlugin fails downloading Gradle 9.1.0 with
+  java.net.SocketException: Network is unreachable. Local Java is 17, not JDK 25.
+  No SDK compilation, Plugin Verifier or native IntelliJ/JCEF lifecycle test ran.
+  One concurrent JVM launch failed in PerfMemory initialization; rerunning that
+  parser check with -XX:-UsePerfData passed. This was before test code execution.
+
+Target-machine acceptance:
+1. Build/install with JDK 25 and run verifyPlugin for the configured IDE versions.
+2. Use Alt+Enter on invalid metadata, a misspelled layout and unclosed blocks. Check
+   comments/CRLF, single undo and absence of speculative closure for ambiguous text.
+3. Create a missing static src Markdown file with Alt+Enter, including directories;
+   check undo and no replacement of an existing target. Verify mapping recovers.
+4. Import a child twice, include nested imports and #2,1,2 ranges, hide a slide.
+   Confirm global outline order, source filenames and bidirectional navigation.
+   Reverse navigation must retain browser focus and not reload the preview.
+5. Edit an imported source unsaved, switch back with Entry source and run Check build.
+   Verify HMR, cross-file error navigation and stale diagnostic removal. Save/reopen
+   a child to check its stored entry association; test independent Treat as Slidev.
+6. Keep Show debug console off. Open Show Slidev log in Code/Split/Preview modes;
+   trigger a missing CLI and a syntax-related server exit. Verify stdout/stderr and
+   an actionable status remain available after failure. Fix the error, select
+   Restart preview in both the toolbar and log window, and confirm a new session
+   starts while earlier output remains. Check repeated restart and close cleanup.
+7. Verify source edits, rapid typing during mapping/restart, modal dialogs, file
+   deletion/recreation, Node setting changes and project disposal leave no stale
+   results, process leaks or write-unsafe operations.

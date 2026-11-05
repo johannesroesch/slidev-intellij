@@ -11,15 +11,15 @@ public final class SlidevEditorProvider implements FileEditorProvider, DumbAware
     private static final Logger LOG=Logger.getInstance(SlidevEditorProvider.class);
     @Override public boolean accept(@NotNull Project project,@NotNull VirtualFile file) {
         boolean accepted=SlidevDetection.accepts(project,file);
-        if(accepted) LOG.info("[Slidev 0.1.15] Provider accepted "+file.getPath());
+        if(accepted) LOG.info("[Slidev 0.1.16] Provider accepted "+file.getPath());
         return accepted;
     }
     @Override public @NotNull FileEditor createEditor(@NotNull Project project,@NotNull VirtualFile file) {
-        LOG.info("[Slidev 0.1.15] Creating editor for "+file.getPath());
+        LOG.info("[Slidev 0.1.16] Creating editor for "+file.getPath());
         try { return new SlidevEditor(project,file); }
         catch(com.intellij.openapi.progress.ProcessCanceledException ex) { throw ex; }
         catch(RuntimeException | LinkageError ex) {
-            LOG.warn("[Slidev 0.1.15] Editor creation failed",ex);
+            LOG.warn("[Slidev 0.1.16] Editor creation failed",ex);
             throw ex;
         }
     }

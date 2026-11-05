@@ -11,6 +11,8 @@ import com.intellij.psi.util.PsiTreeUtil;
 import dev.slidev.intellij.core.MetadataRegions;
 import dev.slidev.intellij.core.SlidevSchema;
 import dev.slidev.intellij.core.ProjectReferences;
+import dev.slidev.intellij.core.QuickFixes;
+import dev.slidev.intellij.core.ProjectCompletions;
 import java.nio.file.Path;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.yaml.psi.*;
@@ -22,13 +24,23 @@ public final class SlidevAnnotator implements Annotator, DumbAware {
         if(!(element instanceof PsiFile file) || !SlidevLanguageSupport.accepts(file)) return;
         String source=file.getText();
         var scan=MetadataRegions.scan(source);
-        for(var resolution:ProjectReferences.analyze(Path.of(file.getVirtualFile().getPath()),source,ProgressManager::checkCanceled)) {
+        Path userRoot=Path.of(SlidevDeckSupport.entryFor(file.getProject(),file.getVirtualFile()).getPath()).getParent();
+        for(var resolution:ProjectReferences.analyze(Path.of(file.getVirtualFile().getPath()),source,userRoot,ProgressManager::checkCanceled)) {
             if(resolution.warning()==null)continue;
             var reference=resolution.reference();
-            report(holder,source.length(),reference.start(),reference.end(),resolution.warning(),
-                reference.kind()==ProjectReferences.Kind.LAYOUT?HighlightSeverity.WEAK_WARNING:HighlightSeverity.WARNING);
+            var annotation=holder.newAnnotation(reference.kind()==ProjectReferences.Kind.LAYOUT?HighlightSeverity.WEAK_WARNING:HighlightSeverity.WARNING,resolution.warning()).range(new TextRange(reference.start(),reference.end()));
+            if(reference.kind()==ProjectReferences.Kind.LAYOUT) {
+                var available=new java.util.LinkedHashSet<String>(SlidevSchema.find("layout",false).values());available.add("fact");available.add("full");
+                available.addAll(ProjectCompletions.discover(Path.of(file.getVirtualFile().getPath()),source,ProgressManager::checkCanceled).layouts().keySet());
+                for(var fix:QuickFixes.layouts(source,reference,available))annotation.withFix(new SlidevTextFix(file,source,fix));
+            }
+            if(reference.kind()==ProjectReferences.Kind.IMPORT)ProjectReferences.missingSourceTarget(Path.of(file.getVirtualFile().getPath()),reference,userRoot).ifPresent(target -> annotation.withFix(new SlidevCreateSourceFix(file,source,target)));
+            annotation.create();
         }
-        for(var problem:scan.problems()) report(holder,source.length(),problem.start(),problem.end(),problem.message(),HighlightSeverity.WARNING);
+        for(var problem:scan.problems()) {
+            var annotation=holder.newAnnotation(HighlightSeverity.WARNING,problem.message()).range(new TextRange(problem.start(),problem.end()));
+            QuickFixes.closing(source,problem).ifPresent(edit -> annotation.withFix(new SlidevTextFix(file,source,edit)));annotation.create();
+        }
         var type=SlidevLanguageSupport.yamlType();
         var highlighter=SyntaxHighlighterFactory.getSyntaxHighlighter(type,file.getProject(),null);
         for(var block:scan.blocks()) {
@@ -72,7 +84,11 @@ public final class SlidevAnnotator implements Annotator, DumbAware {
                     if(field!=null && !field.rule().isEmpty()) {
                         var value=pair.getValue();
                         String problem=SlidevSchema.scalarProblem(name,value.getText(),block.head());
-                        if(problem!=null) report(holder,source.length(),block.start()+value.getTextOffset(),block.start()+value.getTextRange().getEndOffset(),name+": "+problem,HighlightSeverity.WARNING);
+                        if(problem!=null) {
+                            int valueStart=block.start()+value.getTextOffset(),valueEnd=block.start()+value.getTextRange().getEndOffset();
+                            var annotation=holder.newAnnotation(HighlightSeverity.WARNING,name+": "+problem).range(new TextRange(valueStart,valueEnd));
+                            for(var edit:QuickFixes.values(source,valueStart,valueEnd,field))annotation.withFix(new SlidevTextFix(file,source,edit));annotation.create();
+                        }
                     }
                 }
             }

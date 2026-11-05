@@ -1,12 +1,12 @@
-# Slidev for IntelliJ, Prototyp 0.1.15
+# Slidev for IntelliJ, Prototyp 0.1.16
 
 Dieses Projekt ergänzt IntelliJ um einen Slidev-Editor mit Folienübersicht, einer echten Slidev-Vorschau und einem Präsentationsfenster.
 
 ## Status
 
-Dies ist ein Quellcode-Prototyp. 43 Parser-, Diagnose- und Navigationschecks sowie 49 Metadaten- und Schemaprüfungen sowie 68 zusätzliche Completion- und Dateisystemprüfungen bestehen. Zusätzlich bestehen 33 reine Java-Prüfungen für Ausdrucksmaskierung und Protokoll sowie gesonderte Tests gegen den echten Vue-Compiler und den Node-Unterprozess. 113 weitere Prüfungen für Projektbezüge und Navigationsziele bestehen. Die neue IntelliJ-Integration für YAML, Completion, Live-Ausdrucksprüfung und Dateinavigation ist hier noch nicht durch einen vollständigen Plugin-Build oder IDE-Test validiert. Ein vollständiger Plugin-Build und ein Laufzeittest in IntelliJ waren in der Erstellungsumgebung nicht möglich. Der Gradle-Wrapper konnte seine Distribution wegen des eingeschränkten Netzwerkzugangs des Java-Prozesses nicht herunterladen. Außerdem ist hier nur eine Java-17-Laufzeit vorhanden; die Zielplattform erfordert ein JDK 25.
+Dies ist ein Quellcode-Prototyp. 43 Parser-, Diagnose- und Navigationschecks sowie 49 Metadaten- und Schemaprüfungen sowie 68 zusätzliche Completion- und Dateisystemprüfungen bestehen. Zusätzlich bestehen 33 reine Java-Prüfungen für Ausdrucksmaskierung und Protokoll sowie gesonderte Tests gegen den echten Vue-Compiler und den Node-Unterprozess. 113 weitere Prüfungen für Projektbezüge und Navigationsziele bestehen. Hinzu kommen 21 reine Quick-Fix-/Deck-Mapping-Prüfungen sowie sieben zusätzliche Prüfungen mit echtem Node-/Slidev-Parser-Prozess für beide getesteten Slidev-Versionen. Die neue IntelliJ-Integration für YAML, Completion, Live-Ausdrucksprüfung und Dateinavigation ist hier noch nicht durch einen vollständigen Plugin-Build oder IDE-Test validiert. Ein vollständiger Plugin-Build und ein Laufzeittest in IntelliJ waren in der Erstellungsumgebung nicht möglich. Der Gradle-Wrapper konnte seine Distribution wegen des eingeschränkten Netzwerkzugangs des Java-Prozesses nicht herunterladen. Außerdem ist hier nur eine Java-17-Laufzeit vorhanden; die Zielplattform erfordert ein JDK 25.
 
-Die enthaltene Projekt-ZIP ist **kein installierbares IntelliJ-Plugin**. Erst `buildPlugin` erzeugt das installierbare Paket.
+Der Quellcode im Repository ist **kein installierbares IntelliJ-Plugin**. Erst `buildPlugin` erzeugt das installierbare Paket.
 
 ## Zielplattform und Voraussetzungen
 
@@ -77,7 +77,7 @@ Eine Datei wird als Slidev-Kandidat erkannt, wenn mindestens eines dieser Merkma
 
 Diese automatische Erkennung ist eine Heuristik. Bei anders benannten Einstiegsdateien ohne eindeutiges Merkmal die Datei im Editor oder Projektbaum mit der rechten Maustaste anklicken und **Treat as Slidev** auswählen. Die Zuordnung wird im Workspace gespeichert. Bereits geöffnete Dateien nach der Installation oder bei Änderungen der Erkennungsmerkmale schließen und neu öffnen.
 
-Das Plugin übernimmt nicht pauschal alle Markdown-Dateien. Importierte Teilfolien werden noch nicht automatisch als Teil eines Hauptdecks aufgelöst.
+Das Plugin übernimmt nicht pauschal alle Markdown-Dateien. Nach dem Auflösen eines Hauptdecks werden seine importierten Markdown-Dateien im Workspace diesem Einstieg zugeordnet. Eine ausdrückliche Zuordnung über **Treat as Slidev** behandelt eine Datei weiterhin als unabhängigen Einstieg. Wird dieselbe Datei von mehreren Decks importiert, gilt beim separaten Öffnen die zuletzt gespeicherte Zuordnung.
 
 ## Präsentation öffnen und Vorschau verwenden
 
@@ -88,7 +88,7 @@ Das Plugin übernimmt nicht pauschal alle Markdown-Dateien. Importierte Teilfoli
 
 Der Prototyp sucht vom Verzeichnis der Einstiegsdatei aus aufwärts nach `node_modules/@slidev/cli/bin/slidev.mjs`. Er führt diese CLI direkt mit Node.js aus. Das funktioniert auch mit einem üblichen pnpm-Verzeichnis mit Symlinks. Yarn Plug'n'Play, globales Slidev und benutzerdefinierte Startkommandos sind noch nicht unterstützt.
 
-Unter **Settings > Slidev** lässt sich der Node.js-Pfad einstellen. Scheitert der automatische Start, den Fehler beheben und den Slidev-Tab erneut auswählen. Eine Änderung des Node.js-Pfads in den Einstellungen startet eine fehlgeschlagene Sitzung nach Schließen des Einstellungsdialogs ebenfalls erneut. Auf macOS empfiehlt sich ein absoluter Pfad, etwa `/opt/homebrew/bin/node`, sofern Node dort installiert ist. Eine aus dem Dock gestartete IDE hat häufig einen anderen PATH als das Terminal. `node` darf verwendet werden, wenn der IDE-Prozess ihn auflösen kann.
+Unter **Settings > Slidev** lässt sich der Node.js-Pfad einstellen. Scheitert der automatische Start, **Show Slidev log** öffnen, den Fehler beheben und **Restart preview** auswählen. Eine Änderung des Node.js-Pfads in den Einstellungen startet eine fehlgeschlagene Sitzung nach Schließen des Einstellungsdialogs ebenfalls erneut. Auf macOS empfiehlt sich ein absoluter Pfad, etwa `/opt/homebrew/bin/node`, sofern Node dort installiert ist. Eine aus dem Dock gestartete IDE hat häufig einen anderen PATH als das Terminal. `node` darf verwendet werden, wenn der IDE-Prozess ihn auflösen kann.
 
 Die CLI erhält die Einstiegsdatei und einen frei gewählten Port. Slidev verwendet seine normale Projektkonfiguration einschließlich des Themes. Es wird kein Remote-Modus aktiviert. Der Server startet automatisch, sobald der ausgewählte Slidev-Editor-Tab tatsächlich sichtbar ist. Serverbereitschaft wird als `Slidev server ready. Loading preview…` angezeigt. Erst nach dem Laden folgen `Preview loaded` beziehungsweise `Preview running`; Chromium-Ladefehler erscheinen als eigene Statusmeldung. Die Buttons Start preview, Stop und Present sind entfernt. Der erste Serveraufbau kann bis zu 90 Sekunden benötigen.
 
@@ -104,17 +104,17 @@ Die drei Symbolbuttons oben rechts wechseln zwischen:
 * **Split:** Quelltext und Vorschau nebeneinander (Standard beim Öffnen).
 * **Preview:** ausschließlich Vorschau.
 
-Die Buttons besitzen Tooltips und zugängliche Namen. Die Umschaltung bleibt in allen Ansichten erreichbar. Editor und Browser werden dabei weiterverwendet; es gibt keinen Neustart und kein Neuladen. Ab Version 0.1.10 behalten beide Bereiche beim Moduswechsel denselben Swing-Elterncontainer. Die erste Split-Ansicht reserviert explizit etwa die Hälfte des Platzes für die Vorschau, unabhängig von den bevorzugten Größen des Texteditors und Browsers. Die Split-Breite bleibt während der geöffneten Sitzung erhalten. Die Vorschau läuft auch im Code-Modus weiter. **Check build** steht unabhängig vom Ansichtsmodus oben links zur Verfügung.
+Die Buttons besitzen Tooltips und zugängliche Namen. Die Umschaltung bleibt in allen Ansichten erreichbar. Editor und Browser werden dabei weiterverwendet; es gibt keinen Neustart und kein Neuladen. Ab Version 0.1.10 behalten beide Bereiche beim Moduswechsel denselben Swing-Elterncontainer. Die erste Split-Ansicht reserviert explizit etwa die Hälfte des Platzes für die Vorschau, unabhängig von den bevorzugten Größen des Texteditors und Browsers. Die Split-Breite bleibt während der geöffneten Sitzung erhalten. Die Vorschau läuft auch im Code-Modus weiter. **Check build**, **Show Slidev log**, **Restart preview** und **Entry source** stehen unabhängig vom Ansichtsmodus oben links zur Verfügung.
 
 ## Build prüfen und Fehler anzeigen
 
-**Check build** speichert die aktuelle Einstiegsdatei und startet die lokal installierte Slidev-CLI als `slidev build <entry> --out <temporäres Verzeichnis>`. Die Prüfung benötigt keinen laufenden Vorschau-Server und keine Ultimate-Lizenz. `--inspect` ist hierfür nicht erforderlich. Sie berücksichtigt die vorhandene Slidev-Projektkonfiguration; eigene Build-Plugins können ihre üblichen Nebenwirkungen ausführen.
+**Check build** speichert die geöffneten Dokumente des aufgelösten Decks und startet die lokal installierte Slidev-CLI als `slidev build <entry> --out <temporäres Verzeichnis>`. Die Prüfung benötigt keinen laufenden Vorschau-Server und keine Ultimate-Lizenz. `--inspect` ist hierfür nicht erforderlich. Sie berücksichtigt die vorhandene Slidev-Projektkonfiguration; eigene Build-Plugins können ihre üblichen Nebenwirkungen ausführen.
 
 Die Ausgabe wird in der Debug-Konsole gesammelt (standardmäßig ausgeblendet). Erkannte Fehler erscheinen zusätzlich in einer Liste. Ein Klick auf einen zugeordneten Fehler setzt den Cursor auf die Position im Quelltext. Eine rote Wellenlinie und eine Markierung am Editor-Rand zeigen die Stelle. **Cancel check** bricht die Prüfung ab. Nach 120 Sekunden wird ein noch laufender Build beendet. Die temporären Build-Dateien werden anschließend gelöscht; das normale `dist`-Verzeichnis wird nicht als Ausgabeziel verwendet.
 
 Die Auswertung unterstützt die gezeigten Vite-7/Rollup- und Vite-8/Rolldown-Ausgaben. Für virtuelle Dateinamen wie `slides.md__slidev_2.md:5:7` wird die Zeile relativ zum Inhalt der zweiten Folie zugeordnet. Frontmatter und führende Leerzeilen werden übersprungen. Beginnt der Inhalt in Originalzeile 54, ergibt die gemeldete Zeile 5 die Originalzeile 58. Die Spalte wird als einsbasierte Position übernommen und auf das Zeilenende begrenzt.
 
-Diese Zuordnung ist eine Heuristik ohne Source Maps. Eigene Markdown-Transformationen, Parser-Erweiterungen, Block Frontmatter und importierte Folien können die Positionen verändern. Die Liste kennzeichnet zugeordnete Positionen deshalb als `slide-relative mapping`. Bei Imports über `src` werden nur die generierten Positionen angezeigt. Nicht zuordenbare Fehler bleiben in der Liste oder im Log sichtbar. Browser-Laufzeitfehler werden durch einen erfolgreichen Build nicht ausgeschlossen.
+Diese Zuordnung ist eine Heuristik ohne Source Maps. Eigene Markdown-Transformationen, Parser-Erweiterungen und Block Frontmatter können die Positionen verändern. Die Liste kennzeichnet zugeordnete Positionen deshalb als `slide-relative mapping`. Bei Imports über `src` werden globale Foliennummer und Quelldatei aus dem Slidev-Parser abgeglichen und die Position im importierten Dokument geöffnet. Ist das Deck-Mapping nicht verfügbar oder passt der Dateiname nicht, bleibt die generierte Position erhalten. Nicht zuordenbare Fehler bleiben in der Liste oder im Log sichtbar. Browser-Laufzeitfehler werden durch einen erfolgreichen Build nicht ausgeschlossen.
 
 Bei einer Änderung des Dokuments werden alte Markierungen entfernt und eine laufende Prüfung abgebrochen. Eine neue Prüfung startet erst durch **Check build**, nicht nach jedem Tastendruck. Ein schneller Linter für die Bearbeitung ist weiterhin ein eigener Backlog-Punkt.
 
@@ -122,11 +122,11 @@ Bei einer Änderung des Dokuments werden alte Markierungen entfernt und eine lau
 
 Unter **Settings > Slidev** aktiviert **Show debug console** die Konsole unterhalb der Fehlerliste. Standardmäßig ist sie unsichtbar und beansprucht keinen Platz. Die Auswahl wird im Projekt-Workspace gespeichert. Nach Übernahme und Schließen des Einstellungsdialogs aktualisieren sich auch bereits geöffnete Slidev-Editoren; ein Neustart oder erneutes Öffnen der Datei ist nicht nötig.
 
-Server- und Build-Ausgaben werden auch bei ausgeblendeter Konsole weiterhin gesammelt. Zum Diagnostizieren von Fehlern die Konsole einschalten. Statusmeldungen, Build-Fehlerliste und Markierungen bleiben unabhängig von dieser Einstellung sichtbar.
+Server- und Build-Ausgaben werden auch bei ausgeblendeter Konsole weiterhin gesammelt. **Show Slidev log** öffnet unabhängig von dieser Einstellung ein separates, nicht modales Logfenster mit den laufenden Ausgaben. Der Button ist auch im Code-Modus und nach einem Serverabbruch erreichbar. **Restart preview** steht in der Toolbar und im Logfenster zur Verfügung, beendet die alte Sitzung und startet Slidev nach dem Speichern der beteiligten Dokumente neu. Die bisherigen Ausgaben bleiben mit einer neuen Startmarkierung erhalten. Es gibt keine automatische Neustartschleife bei Syntaxfehlern. Das Log enthält die jüngsten Ausgaben der geöffneten Editorsitzung und ist auf ungefähr 100.000 Zeichen begrenzt; es wird nicht dauerhaft archiviert. Statusmeldungen, Build-Fehlerliste und Markierungen bleiben unabhängig von dieser Einstellung sichtbar.
 
 ## Folien auswählen und synchronisieren
 
-Die Auswahl oberhalb der Vorschau zeigt Foliennummern und Überschriften. Eine manuelle Auswahl setzt den Cursor auf die Folie und sendet einen Navigationsbefehl an die laufende Vorschau. Der Browser wird dafür nicht neu geladen. Auf einer anderen Folie startet Slidev bei deren Anfang; auf derselben Folie bleibt der aktuelle Klickschritt erhalten.
+Die Auswahl oberhalb der Vorschau zeigt globale Foliennummern, Überschriften und Quelldateinamen. Eine manuelle Auswahl setzt den Cursor auf die Folie und sendet einen Navigationsbefehl an die laufende Vorschau. Der Browser wird dafür nicht neu geladen. Auf einer anderen Folie startet Slidev bei deren Anfang; auf derselben Folie bleibt der aktuelle Klickschritt erhalten.
 
 **Settings > Slidev > Sync editor and preview** ist standardmäßig aktiviert. Die Option steht ausschließlich in den Einstellungen und nicht in der Vorschau-Toolbar. Änderungen übernehmen nach Schließen des Einstellungsdialogs auch bereits geöffnete Editoren. Die Auswahl wird im Projekt-Workspace gespeichert und bei neu geöffneten Slidev-Editoren wiederhergestellt.
 
@@ -137,7 +137,9 @@ Die Auswahl oberhalb der Vorschau zeigt Foliennummern und Überschriften. Eine m
 
 Die Brücke verwendet Slidevs Entwicklungs-API `postMessage({target: 'slidev', type: 'navigate', no: ...})`, die intern `nav.go()` aufruft. Sie liest die aktuelle Foliennummer aus dem im Entwicklungsmodus bereitgestellten `window.__slidev__.nav` alle 100 ms und meldet nur Folienwechsel an IntelliJ. Es werden keine Klicks oder Tastendrücke simuliert. Ein zusätzlicher Netzwerk-Endpunkt und `--remote` sind nicht erforderlich. Der Adapter wurde mit den Nachrichtenhandlern aus Slidev 52.14.1 und 52.20.1 geprüft; diese Entwicklungs-Schnittstelle kann sich in späteren Versionen ändern.
 
-Die Gliederung bleibt dateilokal. Bei `src`-Imports wird die Synchronisierung deaktiviert, weil die lokale Nummerierung nicht zuverlässig der gesamten Präsentation entspricht. Eigene Parser-Erweiterungen, Block Frontmatter und komplexere Syntax können ebenfalls abweichende Grenzen liefern. Ein Mapping über den autoritativen Slidev-Parser bleibt ein Backlog-Punkt.
+Die Gliederung verwendet ab 0.1.16 den lokal installierten `@slidev/parser/fs`. Verschachtelte `src`-Imports, Folienbereiche, mehrfach importierte Quellen sowie ausgeblendete Folien werden für die globale Reihenfolge berücksichtigt. Beim Auswählen einer importierten Folie oder beim Folgen der Preview wechselt der Codebereich innerhalb desselben Slidev-Tabs zur Quelldatei. Die Browser-Komponente bleibt bestehen. **Entry source** zeigt wieder den Einstieg. Bei mehrfach importiertem Quelltext bleibt möglichst das aktuelle Vorkommen ausgewählt, andernfalls wird das erste verwendet. Auch ungespeicherte Änderungen beteiligter Markdown-Dokumente werden beim Mapping berücksichtigt.
+
+Die Auflösung läuft mit dem konfigurierten Node.js in einem begrenzten Hintergrundprozess (10 Sekunden, 192 MB Heap, höchstens 256 Quellen und 10.000 Folien). Fehlende Quellen, Zyklen, nicht unterstützte Pfade und Parserfehler deaktivieren die Zuordnung und Synchronisierung; die Preview bleibt separat nutzbar. Eine erkannte `setup/preparser`-Datei deaktiviert das Mapping ebenfalls. Eigene Preparser aus Themes/Addons und Vite-Resolver werden nicht ausgeführt und können abweichende Ergebnisse erzeugen. Der Parseradapter ist mit Slidev 52.14.1 und 52.20.1 geprüft, nicht mit beliebigen zukünftigen Versionen.
 
 Standalone-Checks für die Browser-Brücke:
 
@@ -190,9 +192,15 @@ Normales Markdown, YAML-Beispiele in Codeblöcken und Notizen werden von der eig
 
 Die zusätzliche Analyse arbeitet mit temporären YAML-PSI-Fragmenten und abgebildeten Offsets. Sie ist keine eigene editierbare YAML-Sprachinjektion für alle Folien und führt nicht automatisch alle YAML-Inspections der IDE aus. Die native YAML-Analyse und die Completion müssen noch praktisch unter IntelliJ 2026.2/2026.3 getestet werden.
 
-Noch nicht enthalten sind vollständige Vue-Typanalyse oder Prop-Erkennung eigener Komponenten, Auflösung beliebiger Addons und Vite-Konfigurationen, Block Frontmatter, vollständige YAML-Varianten im Strukturparser und die Auflösung importierter `src`-Folien. Für Kompilierungsfehler aus Vue bleibt **Check build** verfügbar.
+Noch nicht enthalten sind vollständige Vue-Typanalyse oder Prop-Erkennung eigener Komponenten, Auflösung beliebiger Addons und Vite-Konfigurationen, Block Frontmatter, vollständige YAML-Varianten im lokalen Strukturparser. Für Kompilierungsfehler aus Vue bleibt **Check build** verfügbar.
 
 Ganze Folien können weiterhin eingeklappt werden. Die Vorschau nutzt unabhängig von der lokalen Analyse die echte Slidev-Laufzeit.
+
+## Quick Fixes ab 0.1.16
+
+Mit **Alt+Enter** bieten passende Slidev-Warnungen Korrekturen für bekannte Metadatenwerte und ähnliche Layoutnamen an. Bei eindeutig erkannten offenen Code- oder Frontmatter-Blöcken kann ein schließender Trenner ergänzt werden. Bei mehrdeutigen Grenzen wird keine automatische Ergänzung angeboten. Fehlende statische Markdown-Quellen aus `src` können über eine ausdrückliche Aktion angelegt werden, einschließlich notwendiger Unterverzeichnisse. Vorhandene Dateien werden nicht überschrieben.
+
+Textkorrekturen prüfen vor der Anwendung, ob das analysierte Dokument noch unverändert ist. Die Aktionen laufen als native IntelliJ-Intentionen. Menüintegration, Undo und Dateierstellung müssen noch in der Ziel-IDE praktisch geprüft werden.
 
 ## Komponenten, Direktiven und Projektvorschläge ab 0.1.13
 

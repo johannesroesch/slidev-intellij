@@ -15,6 +15,8 @@ final class SlidevDetection {
     static boolean accepts(Project project, VirtualFile file) {
         if (!file.isInLocalFileSystem() || !isMarkdown(file)) return false;
         if (SlidevSettings.get(project).getState().entryFiles.contains(file.getUrl())) return true;
+        String entry=SlidevSettings.get(project).getState().importedEntries.get(file.getPath());
+        if(entry!=null && com.intellij.openapi.vfs.LocalFileSystem.getInstance().findFileByPath(entry)!=null)return true;
         String text = prefix(file);
         if (text.contains("<!-- slidev -->")) return true;
         if (text.replace("\ufeff", "").startsWith("---")) {

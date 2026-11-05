@@ -93,20 +93,26 @@ public final class ProjectReferences {
         return references.stream().sorted(Comparator.comparingInt(Reference::start)).toList();
     }
     public static List<Resolution> analyze(Path entry,String source,Runnable check) {
+        return analyze(entry,source,entry.toAbsolutePath().getParent(),check);
+    }
+    public static List<Resolution> analyze(Path entry,String source,Path userRoot,Runnable check) {
         List<Reference> references=references(source);
         if(references.isEmpty())return List.of();
         var roots=ProjectCompletions.roots(entry,source,check);
         List<Resolution> result=new ArrayList<>();
-        for(var reference:references) {check.run();result.add(resolve(roots,reference));}
+        for(var reference:references) {check.run();result.add(resolve(roots,reference,userRoot));}
         return List.copyOf(result);
     }
     public static Resolution at(Path entry,String source,int offset,Runnable check) {
+        return at(entry,source,offset,entry.toAbsolutePath().getParent(),check);
+    }
+    public static Resolution at(Path entry,String source,int offset,Path userRoot,Runnable check) {
         for(var reference:references(source)) if(reference.start()<=offset && offset<reference.end()) {
-            return resolve(ProjectCompletions.roots(entry,source,check),reference);
+            return resolve(ProjectCompletions.roots(entry,source,check),reference,userRoot);
         }
         return null;
     }
-    private static Resolution resolve(ProjectCompletions.Roots roots,Reference reference) {
+    private static Resolution resolve(ProjectCompletions.Roots roots,Reference reference,Path userRoot) {
         String value=reference.kind()==Kind.LAYOUT?reference.value().strip():reference.value();
         if(value.isEmpty() || value.startsWith("#") || value.startsWith("//") || value.startsWith("@") || value.startsWith("~") ||
             value.startsWith("/@") || value.startsWith("/node_modules/") || value.contains("{{") || value.contains("${") ||
@@ -121,16 +127,17 @@ public final class ProjectReferences {
                 return new Resolution(reference,null,BUILTINS.contains(value)?null:"Layout '"+value+"' not found locally. Addon and Vite layouts are not checked.");
             }
             int suffix=value.length();
-            for(char marker:new char[]{'?','#'}) {int pos=value.indexOf(marker);if(pos>=0)suffix=Math.min(suffix,pos);}
-            value=URLDecoder.decode(value.substring(0,suffix).replace("+","%2B"),StandardCharsets.UTF_8);
+            for(char marker:reference.kind()==Kind.IMPORT?new char[]{'#'}:new char[]{'?','#'}) {int pos=value.indexOf(marker);if(pos>=0)suffix=Math.min(suffix,pos);}
+            value=reference.kind()==Kind.IMPORT?value.substring(0,suffix):URLDecoder.decode(value.substring(0,suffix).replace("+","%2B"),StandardCharsets.UTF_8);
             if(value.isEmpty() || value.indexOf('\0')>=0 || value.contains("\n") || value.contains("\r"))return new Resolution(reference,null,null);
             if(reference.kind()==Kind.IMPORT) {
-                Path target=roots.entryDirectory().resolve(value).normalize();
+                Path target=value.startsWith("/")?userRoot.resolve(value.substring(1)).normalize():roots.entryDirectory().resolve(value).normalize();
                 return new Resolution(reference,Files.isRegularFile(target)?target:null,Files.isRegularFile(target)?null:"Imported Markdown file not found: "+reference.value());
             }
             if(value.startsWith("/")) {
                 // A URL-root asset belongs to public/, not to the OS filesystem root.
-                for(Path directory:directories(roots)) {
+                LinkedHashSet<Path> assetRoots=new LinkedHashSet<>();assetRoots.add(userRoot);assetRoots.addAll(directories(roots));
+                for(Path directory:assetRoots) {
                     Path publicRoot=directory.resolve("public").normalize();
                     Path target=publicRoot.resolve(value.substring(1)).normalize();
                     if(target.startsWith(publicRoot) && Files.isRegularFile(target))return new Resolution(reference,target,null);
@@ -216,6 +223,18 @@ public final class ProjectReferences {
     private static boolean escaped(String text,int offset) {
         int count=0;while(offset>0 && text.charAt(--offset)=='\\')count++;
         return count%2==1;
+    }
+    public static Optional<Path> missingSourceTarget(Path source,Reference reference) {
+        return missingSourceTarget(source,reference,source.toAbsolutePath().getParent());
+    }
+    public static Optional<Path> missingSourceTarget(Path source,Reference reference,Path userRoot) {
+        if(reference.kind()!=Kind.IMPORT)return Optional.empty();String raw=reference.value().split("#",2)[0];
+        if(raw.isBlank() || raw.startsWith("//") || raw.startsWith("@") || raw.startsWith("~") || raw.contains("{{") || raw.contains("${") || raw.matches("^[A-Za-z][A-Za-z0-9+.-]*:.*") || raw.contains("?"))return Optional.empty();
+        try {
+            Path target=(raw.startsWith("/")?userRoot:source.toAbsolutePath().getParent()).resolve(raw.startsWith("/")?raw.substring(1):raw).normalize();
+            String name=target.getFileName().toString().toLowerCase(Locale.ROOT);
+            return (name.endsWith(".md") || name.endsWith(".markdown")) && !Files.exists(target)?Optional.of(target):Optional.empty();
+        } catch(IllegalArgumentException ex){return Optional.empty();}
     }
     private ProjectReferences() {}
 }

@@ -41,17 +41,21 @@ public final class BuildDiagnostics {
         var slides=DeckParser.parse(source).slides();
         if(diagnostic.slide()<1 || diagnostic.slide()>slides.size() || diagnostic.line()<1 || diagnostic.column()<1) return Optional.empty();
         var slide=slides.get(diagnostic.slide()-1);
-        int start=slide.contentStart();
-        for(int i=1;i<diagnostic.line();i++) {
+        return locate(source,slide.contentStart(),slide.end(),diagnostic.line(),diagnostic.column());
+    }
+    public static Optional<Location> locate(String source,int contentStart,int slideEnd,int line,int column) {
+        if(contentStart<0 || slideEnd>source.length() || contentStart>slideEnd || line<1 || column<1)return Optional.empty();
+        int start=contentStart;
+        for(int i=1;i<line;i++) {
             int next=source.indexOf('\n',start);
-            if(next<0 || next+1>=slide.end()) return Optional.empty();
+            if(next<0 || next+1>=slideEnd) return Optional.empty();
             start=next+1;
         }
-        if(start>=slide.end()) return Optional.empty();
+        if(start>=slideEnd) return Optional.empty();
         int end=source.indexOf('\n',start);
-        if(end<0 || end>slide.end()) end=slide.end();
+        if(end<0 || end>slideEnd) end=slideEnd;
         if(end>start && source.charAt(end-1)=='\r') end--;
-        int offset=Math.min(end,start+diagnostic.column()-1);
+        int offset=Math.min(end,start+column-1);
         int originalLine=1;
         for(int i=0;i<start;i++) if(source.charAt(i)=='\n') originalLine++;
         return Optional.of(new Location(offset,originalLine,offset-start+1));

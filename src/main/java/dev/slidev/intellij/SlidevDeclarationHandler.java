@@ -21,8 +21,9 @@ public final class SlidevDeclarationHandler implements GotoDeclarationHandler,Du
         var host=injection.getTopLevelFile(original);
         if(!SlidevLanguageSupport.accepts(host)) return null;
         int hostOffset=original==host?offset:injection.injectedToHost(original,offset);
-        var resolution=ProjectReferences.at(Path.of(host.getVirtualFile().getPath()),host.getText(),hostOffset,ProgressManager::checkCanceled);
-        if(resolution==null && hostOffset>0) resolution=ProjectReferences.at(Path.of(host.getVirtualFile().getPath()),host.getText(),hostOffset-1,ProgressManager::checkCanceled);
+        Path userRoot=Path.of(SlidevDeckSupport.entryFor(host.getProject(),host.getVirtualFile()).getPath()).getParent();
+        var resolution=ProjectReferences.at(Path.of(host.getVirtualFile().getPath()),host.getText(),hostOffset,userRoot,ProgressManager::checkCanceled);
+        if(resolution==null && hostOffset>0) resolution=ProjectReferences.at(Path.of(host.getVirtualFile().getPath()),host.getText(),hostOffset-1,userRoot,ProgressManager::checkCanceled);
         if(resolution==null || resolution.target()==null) return null;
         var target=LocalFileSystem.getInstance().findFileByPath(resolution.target().toString().replace('\\','/'));
         if(target==null) return null;

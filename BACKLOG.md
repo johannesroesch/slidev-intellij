@@ -1,5 +1,16 @@
 # Backlog
 
+## 0.1.16: Quick Fixes, importierte Decks und Diagnosezugriff
+
+* [x] Metadaten-/Layoutkorrekturen, eindeutige Blockabschlüsse und fehlende Markdown-Quellen als Intentionen.
+* [x] Lokalen Slidev-Parser für globale Gliederung, Imports, Bereiche und Quellzuordnung verwenden.
+* [x] Quellwechsel im bestehenden Tab ohne Browserwechsel; wiederholte Imports berücksichtigen.
+* [x] Immer erreichbares Logfenster und manueller Preview-Neustart mit erhaltenem Sitzungslog.
+* [x] Reine Java-Checks und echte Parserprozesse gegen Slidev 52.14.1 und 52.20.1.
+* [ ] Vollständiger SDK-Build, native Intentionen/Undo, Quellwechsel und Log-/Neustartlebenszyklus praktisch prüfen.
+* [ ] Eigene Theme-/Addon-Preparser und dynamische Vite-Resolver berücksichtigen.
+* [ ] Exakte Transform-Source-Maps für Build-Diagnosen.
+
 ## 0.1.15: Projektbezüge
 
 * [x] Statische src-, Bild- und Layout-Bezüge erkennen und lokal prüfen.
@@ -19,8 +30,8 @@
 * [x] Tests mit echtem Vue-Compiler und Node-Prozess einschließlich pnpm-Auflösung.
 * [ ] ExternalAnnotator und Checkbox in echter IDE praktisch prüfen.
 * [x] Erste Prüfung lokaler src-Dateien, Bilder und Layouts mit Navigation.
-* [ ] Quick Fixes für typische Metadaten-/Strukturfehler ergänzen.
-* [ ] Importierte Folien für Gliederung, Diagnosen und Synchronisierung auflösen.
+* [x] Erste Quick Fixes für typische Metadaten-/Strukturfehler ergänzen.
+* [x] Importierte Folien für Gliederung, Diagnosen und Synchronisierung auflösen.
 
 ## 0.1.13: Erweiterte Completion
 
@@ -85,7 +96,7 @@
 * [ ] Vue-Direktiven und Slidev-Komponenten ohne Ultimate als Basissyntax erkennen.
 * [ ] Erweiterte Vue-Codeanalyse optional integrieren.
 * [ ] Block Frontmatter, YAML-Varianten und benutzerdefinierte Parser unterstützen.
-* [ ] Importierte Dateien zu Hauptdecks zuordnen und Navigation über `src`.
+* [x] Importierte Dateien zu Hauptdecks zuordnen und Navigation über `src`.
 * [ ] Dateierkennung zwischenspeichern und manuelle Zuordnung zurücknehmen können.
 * [ ] Projekt-Entry-Konfiguration statt weiterer unsicherer Dateinamensheuristiken.
 * [x] Konventionelle Projekt- und Theme-Layouts lokal für Completion erkennen.
@@ -101,7 +112,7 @@
 * [ ] Einstellbare Paketmanager-/CLI-Pfade und Startargumente.
 * [ ] Verbinden mit bereits laufendem Server.
 * [ ] Explizite Monitorwahl, nativer macOS-Vollbildmodus und Slidev-Fullscreen-Callbacks.
-* [ ] Hauptdeck und importierte Folien in einer gemeinsamen Gliederung.
+* [x] Hauptdeck und importierte Folien in einer gemeinsamen Gliederung.
 * [ ] Anzeigen von Serverfehlern als IDE-Benachrichtigung.
 * [ ] Server bei geöffneten Ansichten desselben Decks gemeinsam verwenden.
 * [ ] Autosave-Verhalten konfigurierbar machen.

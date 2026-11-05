@@ -15,6 +15,7 @@ public final class SlidevSettings implements PersistentStateComponent<SlidevSett
         public boolean showDebugConsole = false;
         public boolean checkVueExpressions = true;
         public List<String> entryFiles = new ArrayList<>();
+        public java.util.Map<String,String> importedEntries = new java.util.LinkedHashMap<>();
     }
     private Data data = new Data();
     public static SlidevSettings get(Project project) { return project.getService(SlidevSettings.class); }

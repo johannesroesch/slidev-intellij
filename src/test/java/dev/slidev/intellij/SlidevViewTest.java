@@ -23,6 +23,11 @@ public final class SlidevViewTest {
                 if(preview.getParent()!=parent || browser.getParent()!=browserParent) throw new AssertionError("Browser hierarchy must remain stable");
             }
             ((JSplitPane)parent).setDividerLocation(650);
+            code.setLayout(new BorderLayout());
+            for(int i=0;i<10;i++) {
+                code.removeAll();code.add(new JTextArea("Imported source "+i),BorderLayout.CENTER);view.ensureLayout();
+                if(preview.getParent()!=parent || browser.getParent()!=browserParent)throw new AssertionError("Source file switch must not reparent browser");
+            }
             view.setMode(SlidevView.Mode.CODE);view.ensureLayout();
             view.setMode(SlidevView.Mode.SPLIT);view.ensureLayout();
             if(Math.abs(((JSplitPane)parent).getDividerLocation()-650)>2) throw new AssertionError("Split ratio lost");
