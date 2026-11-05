@@ -1,0 +1,9 @@
+{
+  "name": "slidev-intellij-smoke-test",
+  "private": true,
+  "scripts": { "dev": "slidev slides.md" },
+  "devDependencies": {
+    "@slidev/cli": "latest",
+    "@slidev/theme-default": "latest"
+  }
+}

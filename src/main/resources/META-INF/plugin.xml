@@ -1,0 +1,24 @@
+<idea-plugin>
+    <id>dev.slidev.intellij</id>
+    <name>Slidev for IntelliJ</name>
+    <vendor>Slidev IntelliJ Project</vendor>
+    <description><![CDATA[Slidev Markdown recognition, slide outline, real Slidev preview and a presentation window. Prototype, local desktop IDE only.]]></description>
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.jcef</depends>
+    <depends>org.intellij.plugins.markdown</depends>
+    <depends>org.jetbrains.plugins.yaml</depends>
+    <extensions defaultExtensionNs="com.intellij">
+        <annotator language="Markdown" implementationClass="dev.slidev.intellij.SlidevAnnotator"/>
+        <completion.contributor language="Markdown" implementationClass="dev.slidev.intellij.SlidevCompletionContributor"/>
+        <completion.contributor language="yaml" implementationClass="dev.slidev.intellij.SlidevCompletionContributor"/>
+        <fileEditorProvider implementation="dev.slidev.intellij.SlidevEditorProvider" order="first"/>
+        <projectService serviceImplementation="dev.slidev.intellij.SlidevSettings"/>
+        <projectConfigurable id="dev.slidev.intellij.settings" displayName="Slidev" instance="dev.slidev.intellij.SlidevConfigurable"/>
+    </extensions>
+    <actions>
+        <action id="Slidev.MarkFile" class="dev.slidev.intellij.MarkSlidevAction" text="Treat as Slidev" description="Mark the selected Markdown file as a Slidev presentation and reopen it">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
+        </action>
+    </actions>
+</idea-plugin>
