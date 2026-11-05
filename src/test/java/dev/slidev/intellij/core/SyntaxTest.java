@@ -33,7 +33,7 @@ public final class SyntaxTest {
         check(completion("---\nth|\n---\n# Slide").prefix().equals("th"),"Partial key completion");
         check(completion("---\n|\n---\n# Slide").key()==null,"Empty headmatter completion");
         check(completion("---\ntheme: de|\n---").key().equals("theme"),"Value completion");
-        check(completion("---\nfonts:\n  sans: Ro|\n---")==null,"No root field completion in nested YAML");
+        check(completion("---\nfonts:\n  sans: Ro|\n---").parent().equals("fonts"),"Nested YAML context excludes root fields");
         check(completion("---\ninfo: >\n  layout|\n---")==null,"No completion in block scalar");
         check(completion("---\n# theme: de|\n---")==null,"No completion in YAML comments");
         check(completion("---\ntheme: 'de|fault'\n---")==null,"No plain completion inside quoted value");

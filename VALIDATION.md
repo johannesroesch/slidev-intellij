@@ -286,3 +286,61 @@ References:
 * https://sli.dev/custom/
 * https://github.com/slidevjs/slidev/blob/main/packages/types/src/frontmatter.ts
 * https://plugins.jetbrains.com/docs/intellij/plugin-dependencies.html
+
+
+## 0.1.13: Extended completion
+
+* Added built-in component/directive/prop suggestions, tag-pair and quoted-value
+  insertion plans, including selected click/marker modifiers. v-clicks remains
+  component-only. Registered completion for HTML as well as Markdown and YAML
+  to handle native Markdown HTML injection without a Vue plugin dependency.
+* Added mapping-aware completion for fonts, drawings, export and defaults,
+  including selected nested values. Scalar/sequence bodies are excluded.
+* Added bounded local project/theme discovery for layouts/*.vue and components
+  (up to five levels and 1000 directory entries per scan). Entry-directory and
+  nearest-package project files take precedence over theme files. Supports
+  installed @slidev/theme-* and slidev-theme-* packages, explicit package names,
+  ancestor node_modules directories and local theme paths. No npm/Node execution
+  or package installation takes place. Arbitrary addon/Vite resolvers are not run.
+* Completion context masks metadata, code fences, blockquoted code fences,
+  indented and inline code, HTML notes, interpolations and script/style bodies.
+  Quoted attribute values are excluded; existing attributes before the cursor
+  are filtered. This is a lexical helper, not a complete Markdown/Vue parser.
+* Metadata type validation remains scoped as in 0.1.12. Adding nested completion
+  does not imply a full nested validation schema or dynamic Vue prop inference.
+
+Executed checks:
+* PASS: ECJ 3.42.0 / Java 17 compilation of standalone core and Swing code.
+* PASS: 43 existing core + 49 metadata/schema + 68 completion/discovery checks.
+  Discovery tests use actual temporary directories with project/nested components,
+  package and local themes, name collisions, missing themes and cancellation.
+  Insertion tests validate pure edit plans; they do not instantiate IDE editors.
+* PASS: Swing view, navigation contract fixture and fullscreen DOM fixture tests.
+* BLOCKED: bash gradlew check buildPlugin cannot download Gradle 9.1.0:
+  Java network request fails with Network is unreachable. Local Java is 17;
+  JDK 25 and the IntelliJ SDK are absent. Full SDK compilation, Plugin Verifier,
+  popup invocation and actual insertion in injected/normal editors are NOT RUN.
+
+Target-machine acceptance:
+1. Build with JDK 25: ./gradlew check buildPlugin and ./gradlew verifyPlugin.
+2. In a recognized Slidev deck, invoke Basic Completion after <v-cl and choose
+   v-click with Enter/Tab. Verify one pair of tags and the caret between them.
+   Repeat before an existing > and before />; preserve existing tag syntax.
+3. Confirm a tag using Space and complete its attributes. In <div v- verify
+   click/after/mark directives; do not offer v-clicks as an attribute. Verify
+   v-clicks offers depth and SlidevVideo offers controls/src. At src, complete
+   into src="" with the caret inside, preserving any already existing value.
+4. Add layouts/demo.vue and components/MyChart.vue in the presentation project.
+   Reinvoke layout value and component completion. Check project provenance and
+   discovery from an installed/local theme. No restart should be required.
+5. Under fonts:, drawings:, export: and defaults:, indent and invoke completion.
+   Check field/value scope, dedent, and absence of root suggestions in text blocks.
+6. Repeat in an ordinary Markdown/YAML file, inline/fenced code, speaker notes,
+   attribute strings and Vue interpolation: no additional Slidev proposals.
+
+Reference contracts reviewed:
+* https://sli.dev/builtin/components
+* https://sli.dev/guide/animations
+* https://sli.dev/features/rough-marker
+* https://sli.dev/custom/config-fonts
+* https://sli.dev/custom/

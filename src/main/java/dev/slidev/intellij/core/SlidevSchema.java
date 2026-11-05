@@ -59,6 +59,47 @@ public final class SlidevSchema {
     public static Field find(String name, boolean head) {
         return fields(head).stream().filter(f -> f.name().equals(name)).findFirst().orElse(null);
     }
+    /** Open nested mappings. Completion suggestions, not an exhaustive validation schema. */
+    public static List<Field> fields(String parent, boolean head) {
+        if(parent.isEmpty()) return fields(head);
+        if(parent.equals("defaults") && head) return fields(false);
+        if(!head) return List.of();
+        return switch(parent) {
+            case "fonts" -> List.of(
+                field("sans", "Sans-serif font families", false, ""),
+                field("serif", "Serif font families", false, ""),
+                field("mono", "Monospace font families", false, ""),
+                field("custom", "Additional font families", false, ""),
+                field("weights", "Font weights to load", false, ""),
+                field("italic", "Load italic font variants", false, "boolean", "true", "false"),
+                field("provider", "Web font provider", false, "", "google", "none", "coollabs"),
+                field("webfonts", "Fonts loaded from the provider", false, ""),
+                field("local", "Locally installed font families", false, ""),
+                field("fallbacks", "Include fallback fonts", false, "boolean", "true", "false"));
+            case "drawings" -> List.of(
+                field("enabled", "Enable drawing tools", false, "mode", "true", "false", "dev", "build"),
+                field("persist", "Persist drawings or set a directory", false, "", "true", "false"),
+                field("presenterOnly", "Allow drawing in presenter mode only", false, "boolean", "true", "false"),
+                field("syncAll", "Synchronize drawings across clients", false, "boolean", "true", "false"));
+            case "export" -> List.of(
+                field("format", "Export format", false, "", "pdf", "png", "pptx", "pptx-editable", "md"),
+                field("output", "Export output path", false, ""),
+                field("timeout", "Rendering timeout in milliseconds", false, ""),
+                field("wait", "Wait before exporting, in milliseconds", false, ""),
+                field("waitUntil", "Browser loading milestone", false, "", "networkidle", "load", "domcontentloaded", "none"),
+                field("range", "Slide ranges, e.g. 1,3-5", false, ""),
+                field("dark", "Export dark theme", false, "boolean", "true", "false"),
+                field("withClicks", "Include click steps", false, "boolean", "true", "false"),
+                field("withToc", "Include document outline", false, "boolean", "true", "false"),
+                field("perSlide", "Render each slide separately", false, "boolean", "true", "false"),
+                field("scale", "Image export scale", false, ""),
+                field("omitBackground", "Transparent PNG background", false, "boolean", "true", "false"));
+            default -> List.of();
+        };
+    }
+    public static Field find(String parent, String name, boolean head) {
+        return fields(parent,head).stream().filter(f -> f.name().equals(name)).findFirst().orElse(null);
+    }
     public static String scalarProblem(String name, String raw, boolean head) {
         Field field=find(name, head);
         if(field==null || field.rule().isEmpty()) return null;

@@ -8,7 +8,7 @@ public final class MetadataRegions {
     public record Block(int marker, int start, int end, boolean head, boolean closed) {}
     public record Problem(int start, int end, String message) {}
     public record Scan(List<Block> blocks, List<Problem> problems) {}
-    public record Completion(Block block, String key, String prefix, int prefixStart) {}
+    public record Completion(Block block, String key, String prefix, int prefixStart, String parent) {}
     private static final Pattern KEY=Pattern.compile("(?:[\\w.-]+|'[^']+'|\"[^\"]+\")\\s*:.*");
     private record Line(String text, int start, int end) {}
 
@@ -67,12 +67,40 @@ public final class MetadataRegions {
             if(offset<block.start() || offset>block.end() || (block.closed() && offset==block.end())) continue;
             int lineStart=Math.max(block.start(),source.lastIndexOf('\n',Math.max(0,offset-1))+1);
             String before=source.substring(lineStart,offset);
+            // Recover mapping ancestry without offering fields inside YAML sequences or block strings.
+            int indent=0;
+            while(indent<before.length() && before.charAt(indent)==' ') indent++;
+            String parent=parentPath(source.substring(block.start(),lineStart),indent);
+            if(parent==null) return null;
+            before=before.substring(indent);
             var key=Pattern.compile("([A-Za-z_][\\w-]*)?").matcher(before);
-            if(key.matches()) return new Completion(block,null,before,lineStart);
+            if(key.matches()) return new Completion(block,null,before,lineStart+indent,parent);
             var value=Pattern.compile("([A-Za-z_][\\w-]*)\\s*:\\s*([\\w-]*)").matcher(before);
-            if(value.matches()) return new Completion(block,value.group(1),value.group(2),offset-value.group(2).length());
+            if(value.matches()) return new Completion(block,value.group(1),value.group(2),offset-value.group(2).length(),parent);
         }
         return null;
+    }
+    private record Parent(int indent,String key) {}
+    private static String parentPath(String previous,int indent) {
+        List<Parent> stack=new ArrayList<>();
+        int scalar=-1, sequence=-1;
+        for(String line:previous.split("\n")) {
+            if(line.isBlank() || line.stripLeading().startsWith("#")) continue;
+            int spaces=0; while(spaces<line.length() && line.charAt(spaces)==' ') spaces++;
+            if(scalar>=0 && spaces>scalar) continue;
+            scalar=-1;
+            while(!stack.isEmpty() && stack.get(stack.size()-1).indent()>=spaces) stack.remove(stack.size()-1);
+            if(sequence>=0 && spaces<=sequence) sequence=-1;
+            if(line.stripLeading().startsWith("- ")) sequence=spaces;
+            var mapping=Pattern.compile("([A-Za-z_][\\w-]*)\\s*:\\s*(?:#.*)?").matcher(line.substring(spaces).stripTrailing());
+            if(mapping.matches()) stack.add(new Parent(spaces,mapping.group(1)));
+            if(line.matches("\\s*[\\w-]+\\s*:\\s*[|>][0-9+-]*\\s*(#.*)?")) scalar=spaces;
+        }
+        if((scalar>=0 && indent>scalar) || (sequence>=0 && indent>=sequence && indent>0)) return null;
+        while(!stack.isEmpty() && stack.get(stack.size()-1).indent()>=indent) stack.remove(stack.size()-1);
+        // An indented root with no parent is either malformed YAML or a multiline scalar.
+        if(indent>0 && stack.isEmpty()) return null;
+        return String.join(".",stack.stream().map(Parent::key).toList());
     }
     private MetadataRegions() {}
 }

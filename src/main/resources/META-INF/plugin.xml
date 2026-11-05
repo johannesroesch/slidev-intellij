@@ -11,6 +11,7 @@
         <annotator language="Markdown" implementationClass="dev.slidev.intellij.SlidevAnnotator"/>
         <completion.contributor language="Markdown" implementationClass="dev.slidev.intellij.SlidevCompletionContributor"/>
         <completion.contributor language="yaml" implementationClass="dev.slidev.intellij.SlidevCompletionContributor"/>
+        <completion.contributor language="HTML" implementationClass="dev.slidev.intellij.SlidevCompletionContributor"/>
         <fileEditorProvider implementation="dev.slidev.intellij.SlidevEditorProvider" order="first"/>
         <projectService serviceImplementation="dev.slidev.intellij.SlidevSettings"/>
         <projectConfigurable id="dev.slidev.intellij.settings" displayName="Slidev" instance="dev.slidev.intellij.SlidevConfigurable"/>

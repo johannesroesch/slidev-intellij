@@ -1,10 +1,10 @@
-# Slidev for IntelliJ, Prototyp 0.1.12
+# Slidev for IntelliJ, Prototyp 0.1.13
 
 Dieses Projekt ergänzt IntelliJ um einen Slidev-Editor mit Folienübersicht, einer echten Slidev-Vorschau und einem Präsentationsfenster.
 
 ## Status
 
-Dies ist ein Quellcode-Prototyp. 43 Parser-, Diagnose- und Navigationschecks sowie 49 zusätzliche Metadaten-, Completion- und Schemaprüfungen bestehen. Die neue IntelliJ-Integration für YAML-Analyse und Completion ist hier noch nicht durch einen vollständigen Plugin-Build oder IDE-Test validiert. Ein vollständiger Plugin-Build und ein Laufzeittest in IntelliJ waren in der Erstellungsumgebung nicht möglich. Der Gradle-Wrapper konnte seine Distribution wegen des eingeschränkten Netzwerkzugangs des Java-Prozesses nicht herunterladen. Außerdem ist hier nur eine Java-17-Laufzeit vorhanden; die Zielplattform erfordert ein JDK 25.
+Dies ist ein Quellcode-Prototyp. 43 Parser-, Diagnose- und Navigationschecks sowie 49 Metadaten- und Schemaprüfungen sowie 68 zusätzliche Completion- und Dateisystemprüfungen bestehen. Die neue IntelliJ-Integration für YAML-Analyse und Completion ist hier noch nicht durch einen vollständigen Plugin-Build oder IDE-Test validiert. Ein vollständiger Plugin-Build und ein Laufzeittest in IntelliJ waren in der Erstellungsumgebung nicht möglich. Der Gradle-Wrapper konnte seine Distribution wegen des eingeschränkten Netzwerkzugangs des Java-Prozesses nicht herunterladen. Außerdem ist hier nur eine Java-17-Laufzeit vorhanden; die Zielplattform erfordert ein JDK 25.
 
 Die enthaltene Projekt-ZIP ist **kein installierbares IntelliJ-Plugin**. Erst `buildPlugin` erzeugt das installierbare Paket.
 
@@ -157,7 +157,7 @@ Die Vollbildaktion innerhalb der geöffneten Slidev-Vorschau (Vollbildsymbol ode
 
 Die Brücke wertet das `fullscreenchange`-Ereignis des Browsers aus. Die tatsächlich verwendete JCEF-Laufzeit muss die Web-Fullscreen-API unterstützen; deren Verhalten und der Fensterwechsel sind auf dem Zielsystem noch praktisch zu validieren. Das Fenster ist auf macOS zunächst kein eigener nativer Vollbild-Space. Ein eigener Presenter-Modus mit Notizen und eine separate Monitorwahl sind weiterhin nicht enthalten.
 
-## Syntaxunterstützung ab 0.1.12
+## Syntaxunterstützung
 
 Die Sprachunterstützung gilt für erkannte oder mit **Treat as Slidev** zugeordnete Präsentationen. Sie benötigt keinen laufenden Slidev-Server und keine Ultimate-, JavaScript- oder Vue-Lizenz. Markdown bleibt die Dateisprache.
 
@@ -186,13 +186,29 @@ clicks: 3
 # Zweite Folie
 ```
 
-Normales Markdown, YAML-Beispiele in Codeblöcken und Notizen werden von der eigenen Slidev-Completion ausgenommen. Root-Feldvorschläge erscheinen nicht in verschachtelten YAML-Werten oder eingerückten mehrzeiligen Texten. Bestehende native YAML-Injektion im Markdown-Headmatter wird bei der Completion auf die Position im Ursprungsdokument zurückgeführt.
+Normales Markdown, YAML-Beispiele in Codeblöcken und Notizen werden von der eigenen Slidev-Completion ausgenommen. Ab 0.1.13 werden verschachtelte Feldnamen und ausgewählte Werte unter `fonts`, `drawings`, `export` und `defaults` angeboten. `defaults` enthält Folieneinstellungen wie `layout`, keine deckweiten Felder wie `theme`. In mehrzeiligen YAML-Texten, Sequenzen und unbekannten verschachtelten Mappings werden keine unpassenden Root-Felder vorgeschlagen. Bestehende native YAML-Injektion im Markdown-Headmatter wird bei der Completion auf die Position im Ursprungsdokument zurückgeführt.
 
 Die zusätzliche Analyse arbeitet mit temporären YAML-PSI-Fragmenten und abgebildeten Offsets. Sie ist keine eigene editierbare YAML-Sprachinjektion für alle Folien und führt nicht automatisch alle YAML-Inspections der IDE aus. Die native YAML-Analyse und die Completion müssen noch praktisch unter IntelliJ 2026.2/2026.3 getestet werden.
 
-Noch nicht enthalten sind Vue-Ausdrucksprüfung, Komponenten- und Direktiven-Completion, dynamische Theme-/Layout-Erkennung, Block Frontmatter, vollständige YAML-Varianten im Strukturparser und die Auflösung importierter `src`-Folien. Für Kompilierungsfehler aus Vue bleibt **Check build** verfügbar.
+Noch nicht enthalten sind Vue-Ausdrucksprüfung, Typanalyse oder Prop-Erkennung eigener Komponenten, Auflösung beliebiger Addons und Vite-Konfigurationen, Block Frontmatter, vollständige YAML-Varianten im Strukturparser und die Auflösung importierter `src`-Folien. Für Kompilierungsfehler aus Vue bleibt **Check build** verfügbar.
 
 Ganze Folien können weiterhin eingeklappt werden. Die Vorschau nutzt unabhängig von der lokalen Analyse die echte Slidev-Laufzeit.
+
+## Komponenten, Direktiven und Projektvorschläge ab 0.1.13
+
+Mit **Basic Completion / Ctrl+Space** stehen zusätzlich bereit:
+
+* Nach `<` oder einem Tag-Anfang wie `<v-cl`: eingebaute Slidev-Komponenten, zum Beispiel `v-click`, `v-clicks`, `SlidevVideo`, `Toc` und `Arrow`. Bei einem neuen Tag wird ein passendes Tag-Paar eingefügt und der Cursor zwischen die Tags gesetzt. Auch schließende Tags werden angeboten.
+* Innerhalb eines Tags, zum Beispiel `<div v-`: Slidev-Direktiven einschließlich `v-click`, `v-after`, `v-mark`, ausgewählter Modifier sowie `v-motion` und `v-drag`. `v-clicks` wird korrekt nur als Komponente angeboten.
+* Innerhalb bekannter Komponenten: ausgewählte passende Attribute, beispielsweise `depth` für `v-clicks`, `src` und `controls` für `SlidevVideo`. Wertattribute erhalten `=""` mit dem Cursor zwischen den Anführungszeichen. Bereits vorhandene Werte und Tag-Begrenzungen bleiben erhalten. Numerische Bindings wie `:max` bei `AutoFitText` werden auch über den Suchanfang `max` gefunden.
+* Eigene `.vue`-Komponenten aus `components/` des Projekts und des gefundenen Themes. Die Vorschläge verwenden PascalCase, zum Beispiel `my-chart.vue` als `MyChart`. Unterverzeichnisse werden ebenfalls berücksichtigt.
+* Werte für `layout` aus `layouts/*.vue` des Projekts und des gefundenen Themes, auch unter `defaults.layout`. Im Popup wird die Herkunft aus Projekt oder Theme angezeigt.
+
+Die automatische Popup-Einstellung der IDE gilt weiterhin. Wird ein neuer Komponententag mit der Leertaste bestätigt, bleibt der Tag für die Attribut-Eingabe offen. Bestätigen mit Enter oder Tab erzeugt bei einem neuen Tag das Tag-Paar. Innerhalb von Codebeispielen, Notizen, Vue-Interpolationen, Script-/Style-Inhalten und Attributwerten werden keine zusätzlichen Markup-Vorschläge eingeblendet.
+
+Die Dateisuche berücksichtigt das Verzeichnis der Markdown-Datei und das nächste übergeordnete Verzeichnis mit `package.json`. Für Themes werden die konventionellen lokalen Pfade sowie bereits installierte Pakete unter `node_modules` berücksichtigt, zum Beispiel `@slidev/theme-default`, `slidev-theme-name` oder ein vollständig angegebener Paketname. Ein lokaler Theme-Pfad wird relativ zum gefundenen Projektverzeichnis aufgelöst. Fehlende Themes werden nicht installiert. Die Suche wird bei jedem Aufruf erneut ausgeführt und ist auf 1000 Einträge je Verzeichnis sowie fünf Verzeichnisebenen für Komponenten begrenzt. Eigene Projektdateien haben Vorrang vor Theme-Dateien mit gleichem Namen.
+
+Die Markup-Erkennung ist lexikalisch und ersetzt keinen vollständigen Vue-Sprachdienst. Die Vorschläge für eingebaute Attribute sind bewusst eine Auswahl. JavaScript-Ausdrücke und Props eigener Komponenten werden nicht analysiert. Die Completion erfordert keine Ultimate-Lizenz; die tatsächliche Einfügung im IntelliJ-Editor ist in der Erstellungsumgebung noch nicht praktisch getestet.
 
 ## Beispiel und praktischer Abnahmetest
 
@@ -232,7 +248,7 @@ Die Implementierung verwendet Java und Gradle Kotlin DSL. Weitere Sprachfunktion
 
 **Datei erkannt, aber kein Slidev-Editor erstellt:** Wenn `idea.log` einen Provider-accepted-Eintrag, aber keinen Creating-editor-Eintrag enthält, wird der Provider möglicherweise durch eine andere Editorintegration unterdrückt. Zur Eingrenzung zusätzliche Markdown-Editorplugins wie Markdown Pro vorübergehend deaktivieren und die IDE neu starten. Die eingebaute Markdown-Unterstützung muss aktiviert bleiben. Eine solche Unterdrückung ist anhand dieser Meldungen allein nicht bewiesen.
 
-**Treat as Slidev öffnet nur den normalen Editor:** Ab Version 0.1.4 prüft die Aktion nach dem Öffnen, ob der Slidev-Editor verfügbar ist. Falls nicht, erscheint ein Dialog mit den verfügbaren Editorklassen. In `idea.log` nach `[Slidev 0.1.12]` suchen: Die Einträge unterscheiden explizite Zuordnung, Erkennung durch den Provider und Editor-Erstellung. Bei einem Fehler während der Erstellung folgt der Stacktrace. Unter Settings > Plugins prüfen, dass Version 0.1.12 installiert ist.
+**Treat as Slidev öffnet nur den normalen Editor:** Ab Version 0.1.4 prüft die Aktion nach dem Öffnen, ob der Slidev-Editor verfügbar ist. Falls nicht, erscheint ein Dialog mit den verfügbaren Editorklassen. In `idea.log` nach `[Slidev 0.1.13]` suchen: Die Einträge unterscheiden explizite Zuordnung, Erkennung durch den Provider und Editor-Erstellung. Bei einem Fehler während der Erstellung folgt der Stacktrace. Unter Settings > Plugins prüfen, dass Version 0.1.13 installiert ist.
 
 **Package org.cef.browser oder org.cef.handler ist nicht vorhanden:** Im Gradle-Build müssen beide Module `intellij.platform.ui.jcef` und `intellij.libraries.jcef` eingebunden sein. Das erste enthält die IntelliJ-Wrapper, das zweite die zugrunde liegenden JCEF-Klassen. Diese Quellcodefassung enthält die zusätzliche Abhängigkeit. Die Laufzeitabhängigkeit `com.intellij.modules.jcef` in `plugin.xml` ersetzt die Compile-Abhängigkeit nicht.
 

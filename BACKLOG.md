@@ -1,5 +1,15 @@
 # Backlog
 
+## 0.1.13: Erweiterte Completion
+
+* [x] Slidev-Komponenten, Direktiven, ausgewählte Modifier und Komponentenattribute.
+* [x] Kontextfilter für YAML, Markup, Code, Kommentare und Attributwerte.
+* [x] Verschachtelte Completion für fonts, drawings, export und defaults.
+* [x] Layouts und Vue-Komponenten aus konventionellen Projekt- und installierten Theme-Verzeichnissen.
+* [x] Tag-Paare und Wertattribute einfügen, vorhandene Begrenzungen und Werte erhalten.
+* [x] 68 zusätzliche Kontext-, Einfüge- und Dateisystemprüfungen.
+* [ ] Native Completion-Popups und Einfügehandler in IntelliJ 2026.2/2026.3 prüfen.
+
 ## 0.1.12: Erste Sprachunterstützung
 
 * [x] YAML-Lexer und Parser je erkanntem Metadatenblock verwenden; Diagnosen auf Markdown abbilden.
@@ -48,14 +58,16 @@
 * [x] YAML-Fragmentanalyse und Fehlerabbildung je konventionellem Frontmatter-Block.
 * [ ] Vollständige editierbare YAML-Sprachinjektion je Folie.
 * [x] Erste Root-Feld-/Wert-Completion mit Beschreibungen für Headmatter/Frontmatter.
-* [ ] Verschachtelte Completion, vollständige Dokumentation und Quick Fixes ergänzen.
+* [x] Erste verschachtelte Completion für fonts, drawings, export und defaults.
+* [ ] Vollständige Dokumentation und Quick Fixes ergänzen.
 * [ ] Vue-Direktiven und Slidev-Komponenten ohne Ultimate als Basissyntax erkennen.
 * [ ] Erweiterte Vue-Codeanalyse optional integrieren.
 * [ ] Block Frontmatter, YAML-Varianten und benutzerdefinierte Parser unterstützen.
 * [ ] Importierte Dateien zu Hauptdecks zuordnen und Navigation über `src`.
 * [ ] Dateierkennung zwischenspeichern und manuelle Zuordnung zurücknehmen können.
 * [ ] Projekt-Entry-Konfiguration statt weiterer unsicherer Dateinamensheuristiken.
-* [ ] Erkennung und Completion eigener Theme-Layouts.
+* [x] Konventionelle Projekt- und Theme-Layouts lokal für Completion erkennen.
+* [ ] Beliebige Addons und dynamische Konfiguration in die Dateierkennung einbeziehen.
 
 ## 0.3: Vorschau und Präsentieren
 
