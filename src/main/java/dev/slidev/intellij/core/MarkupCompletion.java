@@ -46,7 +46,7 @@ public final class MarkupCompletion {
     }
     public static Context context(String source,int caret) {
         if(caret<0 || caret>source.length()) return null;
-        boolean[] masked=mask(source);
+        boolean[] masked=mask(source,false);
         if(caret>0 && masked[caret-1]) return null;
         int open=-1; char quote=0;
         for(int i=0;i<caret;i++) {
@@ -86,11 +86,33 @@ public final class MarkupCompletion {
         if(value && !after.stripLeading().startsWith("=")) return new Edit("=\"\"",2);
         return new Edit("",0);
     }
-    private static boolean[] mask(String source) {
+    /** Blank Markdown-only regions while preserving UTF-16 offsets for Vue diagnostics. */
+    public static String vueTemplate(String source) {
+        boolean[] masked=mask(source,true);char[] result=source.toCharArray();
+        for(int i=0;i<result.length;i++) if(masked[i] && result[i]!='\n' && result[i]!='\r') result[i]=' ';
+        return new String(result);
+    }
+    private static boolean[] mask(String source,boolean preserveExpressions) {
         boolean[] mask=new boolean[source.length()];
         for(var b:MetadataRegions.scan(source).blocks()) Arrays.fill(mask,b.marker(),Math.min(source.length(),b.closed()?b.end()+3:b.end()),true);
+        boolean inTag=false,closingTag=false;char attributeQuote=0;int htmlDepth=0;
+        String tagName="";
         for(int i=0;i<source.length();i++) {
             if(mask[i]) continue;
+            if(preserveExpressions) {
+                char ch=source.charAt(i);
+                if(attributeQuote!=0) { if(ch==attributeQuote) attributeQuote=0;continue; }
+                if(inTag && (ch=='\'' || ch=='"')) { attributeQuote=ch;continue; }
+                if(ch=='<' && !escaped(source,i)) {
+                    var tag=Pattern.compile("</?([A-Za-z][\\w-]*)").matcher(source);tag.region(i,source.length());
+                    if(tag.lookingAt()) {inTag=true;closingTag=source.startsWith("</",i);tagName=tag.group(1).toLowerCase(Locale.ROOT);}
+                }
+                if(ch=='>' && inTag) {
+                    if(closingTag) htmlDepth=Math.max(0,htmlDepth-1);
+                    else if((i==0 || source.charAt(i-1)!='/') && !Set.of("img","br","hr","input","source","meta","link","area","base","col","embed","param","track","wbr").contains(tagName)) htmlDepth++;
+                    inTag=false;
+                }
+            }
             if(i==0 || source.charAt(i-1)=='\n') {
                 int lineEnd=source.indexOf('\n',i);if(lineEnd<0)lineEnd=source.length();
                 String line=source.substring(i,lineEnd).replace("\r", "");
@@ -105,7 +127,7 @@ public final class MarkupCompletion {
                     }
                     Arrays.fill(mask,i,end,true);i=end-1;continue;
                 }
-                if((line.startsWith("    ") || line.startsWith("\t")) && source.lastIndexOf('<',i-1)<=source.lastIndexOf('>',i-1)) {
+                if((line.startsWith("    ") || line.startsWith("\t")) && !(preserveExpressions && (inTag || htmlDepth>0)) && source.lastIndexOf('<',i-1)<=source.lastIndexOf('>',i-1)) {
                     Arrays.fill(mask,i,lineEnd,true);i=lineEnd-1;continue;
                 }
             }
@@ -119,11 +141,12 @@ public final class MarkupCompletion {
                 Arrays.fill(mask,i,end,true);i=end-1;
             } else if(source.startsWith("{{",i)) {
                 int end=source.indexOf("}}",i+2);end=end<0?source.length():end+2;
-                Arrays.fill(mask,i,end,true);i=end-1;
+                if(!preserveExpressions) Arrays.fill(mask,i,end,true);
+                i=end-1;
             } else if(source.regionMatches(true,i,"<script",0,7) || source.regionMatches(true,i,"<style",0,6)) {
                 var raw=Pattern.compile("(?is)<(script|style)\\b[^>]*>.*?(?:</\\1\\s*>|\\z)").matcher(source);
                 raw.region(i,source.length());
-                if(raw.lookingAt()) { Arrays.fill(mask,i,raw.end(),true);i=raw.end()-1; }
+                if(raw.lookingAt()) { Arrays.fill(mask,i,raw.end(),true);i=raw.end()-1;inTag=false; }
             }
         }
         return mask;

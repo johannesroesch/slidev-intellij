@@ -7,3 +7,4 @@ javac -d "$test_dir" "$project_dir"/src/main/java/dev/slidev/intellij/core/*.jav
 java -ea -cp "$test_dir" dev.slidev.intellij.core.CoreTest
 java -ea -cp "$test_dir" dev.slidev.intellij.core.SyntaxTest
 java -ea -cp "$test_dir" dev.slidev.intellij.core.CompletionTest
+java -ea -cp "$test_dir" dev.slidev.intellij.core.ExpressionTest

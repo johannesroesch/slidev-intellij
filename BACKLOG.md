@@ -1,5 +1,17 @@
 # Backlog
 
+## 0.1.14: Live-Ausdrucksprüfung
+
+* [x] Hintergrundprüfung von Vue-Ausdrücken mit lokal installiertem Vue-Compiler, ohne Build oder Preview.
+* [x] Ungespeicherte Inhalte prüfen und Original-Offsets trotz Code-/Metadaten-Ausblendung erhalten.
+* [x] Abbruch, Zeit-/Größenlimits, veraltete Ergebnisse und fehlende Abhängigkeiten behandeln.
+* [x] Einstellbare Checkbox, standardmäßig aktiv; Node-Konfiguration wiederverwenden.
+* [x] Tests mit echtem Vue-Compiler und Node-Prozess einschließlich pnpm-Auflösung.
+* [ ] ExternalAnnotator und Checkbox in echter IDE praktisch prüfen.
+* [ ] Projektbezüge prüfen: fehlende src-Dateien, Bilder und Layouts mit Navigation.
+* [ ] Quick Fixes für typische Metadaten-/Strukturfehler ergänzen.
+* [ ] Importierte Folien für Gliederung, Diagnosen und Synchronisierung auflösen.
+
 ## 0.1.13: Erweiterte Completion
 
 * [x] Slidev-Komponenten, Direktiven, ausgewählte Modifier und Komponentenattribute.

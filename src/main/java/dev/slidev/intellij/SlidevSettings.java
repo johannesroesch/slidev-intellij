@@ -13,6 +13,7 @@ public final class SlidevSettings implements PersistentStateComponent<SlidevSett
         public String nodeExecutable = "node";
         public boolean syncNavigation = true;
         public boolean showDebugConsole = false;
+        public boolean checkVueExpressions = true;
         public List<String> entryFiles = new ArrayList<>();
     }
     private Data data = new Data();

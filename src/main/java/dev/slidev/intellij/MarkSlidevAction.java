@@ -19,7 +19,7 @@ public final class MarkSlidevAction extends AnAction implements DumbAware {
         if(project==null || file==null) return;
         var files=SlidevSettings.get(project).getState().entryFiles;
         if(!files.contains(file.getUrl())) files.add(file.getUrl());
-        LOG.info("[Slidev 0.1.13] Explicit assignment: "+file.getPath());
+        LOG.info("[Slidev 0.1.14] Explicit assignment: "+file.getPath());
         var manager=FileEditorManager.getInstance(project);
         try {
             manager.closeFile(file); manager.openFile(file,true);
@@ -31,17 +31,17 @@ public final class MarkSlidevAction extends AnAction implements DumbAware {
                 else {
                     String names=java.util.Arrays.stream(editors).map(editor -> editor.getClass().getName())
                         .collect(java.util.stream.Collectors.joining("\n"));
-                    LOG.warn("[Slidev 0.1.13] Assigned file reopened without Slidev editor. Active editors: "+names);
+                    LOG.warn("[Slidev 0.1.14] Assigned file reopened without Slidev editor. Active editors: "+names);
                     Messages.showErrorDialog(project,
-                        "Slidev 0.1.13: The file was assigned, but IntelliJ did not create the Slidev editor.\n\n"+
-                        "Active editors:\n"+names+"\n\nOpen idea.log and search for [Slidev 0.1.13].",
+                        "Slidev 0.1.14: The file was assigned, but IntelliJ did not create the Slidev editor.\n\n"+
+                        "Active editors:\n"+names+"\n\nOpen idea.log and search for [Slidev 0.1.14].",
                         "Slidev editor unavailable");
                 }
             });
         } catch(com.intellij.openapi.progress.ProcessCanceledException ex) { throw ex; }
         catch(RuntimeException | LinkageError ex) {
-            LOG.warn("[Slidev 0.1.13] Opening assigned file failed",ex);
-            Messages.showErrorDialog(project,ex.toString()+"\n\nSee idea.log for [Slidev 0.1.13].","Slidev editor failed");
+            LOG.warn("[Slidev 0.1.14] Opening assigned file failed",ex);
+            Messages.showErrorDialog(project,ex.toString()+"\n\nSee idea.log for [Slidev 0.1.14].","Slidev editor failed");
         }
     }
 }

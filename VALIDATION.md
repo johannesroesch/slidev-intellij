@@ -344,3 +344,61 @@ Reference contracts reviewed:
 * https://sli.dev/features/rough-marker
 * https://sli.dev/custom/config-fonts
 * https://sli.dev/custom/
+
+
+## 0.1.14: Background Vue expression checking
+
+* Added a Markdown ExternalAnnotator. collectInformation snapshots source, entry
+  path and the configured Node executable under the IDE read lock; doAnnotate
+  runs the subprocess outside it. apply rejects changed source/settings and
+  maps native UTF-16 ranges into Markdown. No build/save/server is involved.
+* The bundled helper resolves the locally installed @vue/compiler-dom directly
+  or through the real Slidev CLI path, including isolated pnpm dependencies.
+  It uses Vue's compile API with TypeScript expression support; expressions and
+  generated render code are never evaluated. Only selected expression-related
+  error codes are emitted, using Vue's exported enum rather than numeric constants.
+* Markdown-only ranges are blanked while preserving line endings and UTF-16
+  offsets. Template literals in interpolations and bound attribute strings are
+  preserved, as is indented template content within HTML. This masking remains
+  lexical and is not equivalent to the complete Slidev Markdown transform.
+* Process limits: five seconds, 500,000 UTF-16 source characters, 2 MB output,
+  200 diagnostics; cancellation kills the process and temporary input/output
+  files are removed in finally. Output uses a strict labeled/base64 line protocol.
+* Check Vue expressions while typing defaults to true and is configurable in
+  Settings > Slidev. Settings application restarts daemon analysis. Missing
+  runtime/compiler, timeout or protocol failures are shown as weak warnings,
+  rather than silently claiming successful validation.
+
+Executed:
+* PASS: ECJ/Java 17 core compilation and all existing core/Swing checks.
+* PASS: 33 pure Java expression masking/protocol checks (included in expressionTest
+  and the standalone core script), plus six additional real Java->Node subprocess
+  checks for diagnostics, offset mapping, missing executable, cancellation and timeout.
+* PASS: scripts/test-expressions.cjs against a real @vue/compiler-dom 3.5.22 npm
+  installation in a temporary fixture. Sixteen valid/invalid expression cases cover
+  TypeScript, events, v-for, slot parameters, v-pre, bound attributes and incomplete
+  interpolation. Also validates the -e/stdin protocol, missing compiler response,
+  and resolution through a simulated pnpm CLI symlink to its actual dependency store.
+* PASS: navigation and fullscreen JavaScript fixtures.
+* NOT RUN: SDK-facing classes compiled with JDK 25, Plugin Verifier and native
+  ExternalAnnotator/Settings UI runtime in IntelliJ. Gradle remains blocked before
+  startup by Java network access to its distribution; local runtime is Java 17.
+  Pure Java and real Node tests do not validate the IntelliJ integration.
+
+Manual acceptance:
+1. Build and install with JDK 25; enable the live checkbox in Settings > Slidev.
+2. In a recognized deck, type {{ 1 + }} and :class="{ broken: }" on an element.
+   After the background analysis, expect Vue error annotations on original source.
+   Fix the expression and confirm the error disappears without saving/building.
+3. Confirm valid @click="count++; go()", v-for and TypeScript expressions pass;
+   code examples and notes must not create live expression errors.
+4. Disable the checkbox and verify errors disappear. Set an invalid Node path and
+   verify the actionable weak warning; restore it and verify analysis recovers.
+5. Type rapidly during analysis, close the document/project and check that stale
+   annotations and compiler subprocesses do not remain. Check preview behavior.
+
+References:
+* https://plugins.jetbrains.com/docs/intellij/syntax-highlighting-and-error-highlighting.html
+* https://github.com/vuejs/core/blob/main/packages/compiler-core/src/errors.ts
+* https://github.com/vuejs/core/blob/main/packages/compiler-core/src/compile.ts
+* https://github.com/vuejs/core/blob/main/packages/compiler-dom/src/index.ts
