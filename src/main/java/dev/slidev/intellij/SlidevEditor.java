@@ -672,9 +672,9 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
         exitPresentation();
         if(server!=null) { server.close();server=null; }
         caretTimer.stop();navigationTimeout.stop();caretNavigationPending=false;navigationReady=false;previewSlide=0;requestedSlide=0;navigationRequest++;
-        if(navigationQuery!=null) { navigationQuery.dispose();navigationQuery=null; }
-        if(escapeQuery!=null) { escapeQuery.dispose();escapeQuery=null; }
-        if(browser!=null) { browser.dispose();browser=null; }
+        if(navigationQuery!=null) { Disposer.dispose(navigationQuery);navigationQuery=null; }
+        if(escapeQuery!=null) { Disposer.dispose(escapeQuery);escapeQuery=null; }
+        if(browser!=null) { Disposer.dispose(browser);browser=null; }
         baseUrl=null;runningInspect=false;openInspect.setEnabled(false);
         browserHost.removeAll();browserHost.add(new JLabel("Preview stopped",SwingConstants.CENTER));browserHost.revalidate();browserHost.repaint();
         status.setText("Preview stopped");
