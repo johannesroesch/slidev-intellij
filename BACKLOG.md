@@ -6,7 +6,9 @@
 * [x] Eigene Editorinstanzen vor dem Entladen schließen und bei Updates Dateien erneut öffnen.
 * [x] Verspätete UI-Callbacks nach Editor-/Pluginende verwerfen.
 * [x] Worker ohne geerbten Plugin-Classloader und Thread-Locals erstellen.
-* [ ] SDK-Lebenszyklustests und beide CI-Ziele bestätigen.
+* [x] Zwei SDK-Lebenszyklustests und beide CI-Ziele einschließlich Verifier bestätigen.
+* [x] JCEF-Browser und JS-Brücken über den IntelliJ-Disposer freigeben.
+* [x] Prozessbereinigung beim Beenden des eigenen Threadpools fertiglaufen lassen.
 * [ ] Sichtbaren Updatezyklus mit aktivem JCEF einschließlich tatsächlichem Classloader-Unload testen.
 
 ## 0.1.20: Vue-Fehlernavigation

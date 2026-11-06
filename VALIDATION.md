@@ -783,11 +783,42 @@ Verified code commit: 504b389a1b9871faa485217ff6715609e63f98e8.
 The documentation-only follow-up records the successful run without changing the
 verified production/test/workflow code.
 
-## 0.1.21 dynamic lifecycle (in progress)
+## 0.1.21 dynamic lifecycle
 
-Local pure suites pass, including 8 new TaskScope checks. IDE lifecycle tests
-exercise registered extension-point flags and editor disposal/document retention.
-Full SDK compile/tests, real process checks and Verifier will run in CI.
-Local process-tree checks are not accepted as evidence: the managed execution
-PID/proc environment caused a ProcessHandle failure. Use the CI results instead.
-Interactive JCEF unload/reload and actual old-classloader collection are NOT RUN.
+Verified code/test/workflow commit: 683582e674f721290106238cf6816ee4cc45fb03.
+CI: https://github.com/johannesroesch/slidev-intellij/actions/runs/42204804441
+
+* PASS: check/buildPlugin on IntelliJ 2026.2.3 and 263.7307.112 with JDK 25.
+* PASS: two actual SDK lifecycle tests on each target, zero failures/errors/skips.
+  They check dynamic flags for all registered extension points in the appropriate
+  application/project area and editor disposal with document retention.
+* PASS: 9 TaskScope checks, including interruption, rejected late work, cleanup
+  draining, context classloader and inherited thread-local isolation.
+* PASS: 35 process checks per CI matrix job, including actual Slidev and an unload
+  sequence that drains workers and terminates parent/descendant Node processes.
+* PASS: 49 Vue checks per matrix job plus all existing core/Swing suites.
+* PASS: Plugin Verifier reports Compatible for both targets:
+  IU-262.10968.63: 4 deprecated and 4 experimental API usages.
+  IU-263.7307.112: 8 deprecated and 4 experimental API usages.
+* NOT RUN: interactive native JCEF update/unload/reload and actual collection of
+  the old plugin classloader. The SDK tests exercise our lifecycle callback, not
+  a complete platform plugin replacement. Dynamic flags and compatibility do not
+  prove that native unload is successful.
+
+Local pure suites and 27 standalone real-process checks also pass. Earlier
+shutdown attempts failed process cleanup and were corrected before acceptance.
+The final executor cancels analysis Futures while draining session/termination
+operations. JCEF/browser/query disposal now goes through the platform Disposer.
+
+Test environment: the 262 product's unrestricted bundled plugins failed during
+startup in an unrelated obfuscated Ultimate extension with an invalid constructor.
+The 262 test JVM therefore explicitly selects Slidev, platform, Markdown, YAML and
+JCEF dependencies. The 263 product keeps its default module selection because
+that filter excluded required plugin services there. No assertion/error logging
+is muted. Full exception output is enabled for future SDK test failures.
+
+A first update from 0.1.20 or older can still require restart because the old
+version performs its own unload. Runtime transfer stores file URL strings in a
+platform-owned PropertiesComponent, not plugin objects or editor instances.
+The documentation-only follow-up records this successful run without changing
+verified production/test/workflow code.
