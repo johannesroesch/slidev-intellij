@@ -1,5 +1,15 @@
 # Backlog
 
+## 0.1.17: Fehlerdiagnose der laufenden Preview
+
+* [x] Vite-Servermeldungen während der Vorschau inkrementell erkennen und begrenzen.
+* [x] Erkannte Deck-Positionen einschließlich importierter Quellen anklickbar machen und markieren.
+* [x] Preview- und Build-Ergebnisse getrennt halten; alte Preview-Diagnosen bei Quelländerungen entfernen.
+* [x] Gemeinsame Fehlerliste und direkte Log-/Neustartaktionen in allen Ansichtsmodi.
+* [x] 24 reine Java-Prüfungen und echte Vite-/Vue-Serverfixtures für Vite 7 und 8.
+* [ ] Native IntelliJ-/JCEF-Integration und Ausgaben vollständiger Slidev-Projekte praktisch prüfen.
+* [ ] Transform-Source-Maps, zusätzliche Logformate und komponentenübergreifende Diagnosen.
+
 ## 0.1.16: Quick Fixes, importierte Decks und Diagnosezugriff
 
 * [x] Metadaten-/Layoutkorrekturen, eindeutige Blockabschlüsse und fehlende Markdown-Quellen als Intentionen.

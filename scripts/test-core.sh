@@ -10,3 +10,4 @@ java -ea -cp "$test_dir" dev.slidev.intellij.core.CompletionTest
 java -ea -cp "$test_dir" dev.slidev.intellij.core.ExpressionTest
 java -ea -cp "$test_dir" dev.slidev.intellij.core.ReferencesTest
 java -ea -cp "$test_dir" dev.slidev.intellij.core.CombinedFeaturesTest
+java -ea -cp "$test_dir" dev.slidev.intellij.core.PreviewDiagnosticsTest

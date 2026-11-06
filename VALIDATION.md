@@ -517,3 +517,67 @@ Target-machine acceptance:
 7. Verify source edits, rapid typing during mapping/restart, modal dialogs, file
    deletion/recreation, Node setting changes and project disposal leave no stale
    results, process leaks or write-unsafe operations.
+
+## 0.1.17: Live preview diagnostics and recovery actions
+
+* Added an incremental, bounded PreviewDiagnostics parser for actual Vite dev-server
+  Internal server error / Pre-transform error blocks and recognized startup formats.
+  A header is immediately visible without inventing coordinates; a following File
+  record replaces it with the reported position. Repeated reports at the same source
+  location are consolidated. Stack frames and code frames are never source locations.
+* Virtual IDs map through the existing authoritative deck snapshot, matching global
+  slide number plus source filename. Direct Markdown coordinates map only into known
+  deck sources. Unknown files, components, missing/mismatched mappings and positionless
+  errors stay visible without guessed highlights. Mapping remains slide-relative,
+  without transform source maps, and retains the reported column convention.
+* Preview/build issue collections are independent and merged for display, so one
+  producer does not erase the other's results. The diagnostics footer is outside
+  the preview-only component and remains reachable in Code/Split/Preview modes.
+  Reported errors and session/browser failures expose Open log / Restart preview.
+* Markdown document/VFS changes invalidate old preview diagnoses. Queued lines have
+  generation/session guards; lines received while inputs are dirty are log-only.
+  Saving a previously unknown dirty import also invalidates pre-save diagnostics.
+  New mappings require matching document snapshots. The CLI text stream has no
+  compile-cycle identifier, so this is not a guaranteed structured event protocol.
+* Restart invalidates the old diagnostic stream and retains the session log. Fatal
+  failures remain actionable after editor changes; successful page loading clears
+  a browser-level failure, while compilation errors remain independently visible.
+  No automatic restart loop, new server implementation or library adapter was added.
+
+Executed:
+* PASS: ECJ/Java 17 compilation of all core classes/tests and the Swing view.
+* PASS: 24 pure live diagnostic tests: incremental messages, repeated errors, startup
+  formats, ANSI, Windows/spaced paths, Vite query suffixes, ignored stack frames,
+  invalid/overflow coordinates, bounded history and imported CRLF/Unicode mapping.
+* PASS: scripts/test-preview-diagnostics.cjs using installed Vite 7.3.1 / 8.3.3,
+  @vitejs/plugin-vue 6 and Vue 3.5.22. Real HTTP module requests produce a 500 and
+  Vite/Vue diagnostic. After a watched source correction the same server returns 200.
+  Both captured logs then pass four additional Java assertions (28 total).
+  These are Vite/Vue fixtures, not full Slidev or IntelliJ/JCEF end-to-end tests.
+* PASS: existing 43 parser, 49 metadata, 68 completion, 33 expression, 113 reference
+  and 21 quick-fix/deck checks; Swing layout and navigation/fullscreen JS fixtures.
+* BLOCKED: bash gradlew check buildPlugin fails before compilation while downloading
+  Gradle 9.1.0 with java.net.SocketException: Network is unreachable. Only Java 17 is
+  installed here. SDK compilation, Plugin Verifier and native IDE runtime are NOT RUN.
+
+Target-machine acceptance:
+1. Build/install with JDK 25, run verifyPlugin, open a real Slidev project.
+2. In a visible slide type {{ 1 + }}. Wait for autosave/HMR and verify a [Preview]
+   issue, direct recovery buttons and a matching underline. Click the issue.
+3. Repeat in an imported Markdown source and with repeated imports. Verify the
+   correct source opens and positions retain the slide-relative qualification.
+4. Correct the expression. Old markers must disappear on the source edit, with
+   no claim that all slides have passed. Reintroduce the error and verify fresh
+   diagnostics. Type quickly while output is queued and before an initial mapping.
+5. Run Check build while live errors exist. Verify [Build] and [Preview] entries
+   remain independent, including cancellation and subsequent edits.
+6. Repeat with Code/Split/Preview and debug console disabled. Trigger a CLI/startup
+   failure and a browser HTTP error; Open log and Restart preview remain reachable.
+   Restart repeatedly and ensure older-session output never recreates current marks.
+7. Test errors without locations and errors in .vue components: preserve reported
+   details/logs without falsely assigning a Markdown offset. Confirm cleanup on
+   editor/project close and stable preview hierarchy during file/ansicht changes.
+
+Optional real-server checks (requires separately installed fixture dependencies):
+  node scripts/test-preview-diagnostics.cjs /path/to/vite-project /tmp/vite-errors.log
+  java -ea -cp <test-runtime-classpath> dev.slidev.intellij.core.PreviewDiagnosticsTest /tmp/vite-errors.log

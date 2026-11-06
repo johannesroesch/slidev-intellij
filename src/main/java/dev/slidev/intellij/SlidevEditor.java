@@ -18,6 +18,7 @@ import dev.slidev.intellij.core.DeckParser;
 import dev.slidev.intellij.core.BuildDiagnostics;
 import dev.slidev.intellij.core.SlideNavigation;
 import dev.slidev.intellij.core.ImportedDeck;
+import dev.slidev.intellij.core.PreviewDiagnostics;
 import com.intellij.openapi.editor.EditorFactory;
 import com.intellij.openapi.progress.ProgressManager;
 import com.intellij.openapi.vfs.LocalFileSystem;
@@ -72,6 +73,13 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
     private final JLabel buildStatus=new JLabel("Build not checked");
     private final DefaultListModel<BuildIssue> issues=new DefaultListModel<>();
     private final JList<BuildIssue> issueList=new JList<>(issues);
+    private final List<BuildIssue> buildIssues=new ArrayList<>(),previewIssues=new ArrayList<>();
+    private PreviewDiagnostics previewDiagnostics;
+    private final java.util.concurrent.atomic.AtomicLong previewGeneration=new java.util.concurrent.atomic.AtomicLong();
+    private volatile boolean previewInputsDirty;
+    private String previewFailure;
+    private final JLabel previewHealth=new JLabel("Preview: no current diagnostics");
+    private final JPanel recoveryActions=new JPanel(new FlowLayout(FlowLayout.RIGHT,4,0));
     private final List<RangeHighlighter> buildHighlights=new ArrayList<>();
     private SlidevBuild build;
     private record BuildIssue(String label, Path path, int offset) {
@@ -111,6 +119,7 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
         viewHost=new SlidevView(sourceComponent,previewComponent);
         panel.add(viewHost,BorderLayout.CENTER);
         panel.add(viewToolbar(),BorderLayout.NORTH);
+        panel.add(diagnosticsPanel(),BorderLayout.SOUTH);
         panel.addHierarchyListener(event -> {
             if((event.getChangeFlags() & HierarchyEvent.SHOWING_CHANGED)!=0) onEdt(this::startVisiblePreview);
         });
@@ -142,7 +151,7 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
             @Override public void documentChanged(@NotNull DocumentEvent event) {
                 var changed=FileDocumentManager.getInstance().getFile(event.getDocument());
                 if(changed==null || !belongs(changed.getPath()))return;
-                onEdt(SlidevEditor.this::deckChanged);
+                previewGeneration.incrementAndGet();previewInputsDirty=true;onEdt(SlidevEditor.this::deckChanged);
             }
         },this);
         project.getMessageBus().connect(this).subscribe(VirtualFileManager.VFS_CHANGES,new BulkFileListener() {
@@ -152,7 +161,7 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
                     var document=changed==null?null:FileDocumentManager.getInstance().getCachedDocument(changed);
                     String previous=deck==null?null:deck.sources().get(ImportedDeck.normalize(Path.of(event.getPath())));
                     if(event instanceof com.intellij.openapi.vfs.newvfs.events.VFileContentChangeEvent && document!=null && previous!=null && document.getText().equals(previous))continue;
-                    onEdt(SlidevEditor.this::deckChanged);break;
+                    previewGeneration.incrementAndGet();previewInputsDirty=true;onEdt(SlidevEditor.this::deckChanged);break;
                 }
             }
         });
@@ -239,16 +248,21 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
         preview.add(top,BorderLayout.NORTH);
         browserHost.add(new JLabel("Slidev preview starts automatically.",SwingConstants.CENTER));
         preview.add(browserHost,BorderLayout.CENTER);
+        return preview;
+    }
+    private JComponent diagnosticsPanel() {
         log.setEditable(false);log.setLineWrap(true);
         JPanel bottom=new JPanel(new BorderLayout());
         JPanel diagnostics=new JPanel(new BorderLayout());
-        diagnostics.add(buildStatus,BorderLayout.NORTH);
+        JPanel heading=new JPanel(new BorderLayout());
+        JPanel labels=new JPanel(new GridLayout(0,1));labels.add(previewHealth);labels.add(buildStatus);heading.add(labels,BorderLayout.CENTER);
+        JButton openLog=new JButton("Open log");openLog.addActionListener(event -> showLog());recoveryActions.add(openLog);
+        JButton restart=new JButton("Restart preview");restart.addActionListener(event -> onEdt(this::restartPreview));recoveryActions.add(restart);
+        recoveryActions.setVisible(false);heading.add(recoveryActions,BorderLayout.EAST);diagnostics.add(heading,BorderLayout.NORTH);
         issueList.setVisibleRowCount(3);
         diagnostics.add(new JScrollPane(issueList),BorderLayout.CENTER);
-        bottom.add(diagnostics,BorderLayout.NORTH);
-        bottom.add(debugConsole,BorderLayout.CENTER);
-        preview.add(bottom,BorderLayout.SOUTH);
-        return preview;
+        bottom.add(diagnostics,BorderLayout.NORTH);bottom.add(debugConsole,BorderLayout.CENTER);
+        return bottom;
     }
     private void handleCaretTimer() {
         if(changeTimer.isRunning() || deckLoading) { caretTimer.restart();return; }
@@ -281,7 +295,7 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
     }
     private void receiveNavigation(String message) {
         if(message.equals("ready")) {
-            navigationReady=true;status.setText("Preview running");
+            navigationReady=true;if(previewFailure==null && previewIssues.isEmpty())status.setText("Preview running");
             if(requestedSlide!=0) sendNavigationRequest();
             return;
         }
@@ -320,8 +334,7 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
         } catch(IOException ex) { throw new IllegalStateException(ex); }
     }
     private void clearBuildIssues() {
-        issues.clear();
-        buildHighlights.forEach(RangeHighlighter::dispose);buildHighlights.clear();
+        buildIssues.clear();rebuildIssues();
     }
     private void cancelBuild() {
         if(build==null) return;
@@ -350,11 +363,30 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
                     int offset=mapped.map(value -> value.location().offset()).orElse(-1);
                     String position=mapped.map(value -> value.path().getFileName()+": line "+value.location().line()+", column "+value.location().column()+" (slide-relative mapping)")
                         .orElse(diagnostic.path()+", slide "+diagnostic.slide()+", generated "+diagnostic.line()+":"+diagnostic.column());
-                    issues.addElement(new BuildIssue(position+": "+diagnostic.message(),target,offset));
+                    buildIssues.add(new BuildIssue("[Build] "+position+": "+diagnostic.message(),target,offset));
                 }
-                refreshBuildHighlights();
-                if(!result.success() && issues.isEmpty())issues.addElement(new BuildIssue(result.message(),null,-1));
+                if(!result.success() && buildIssues.isEmpty())buildIssues.add(new BuildIssue("[Build] "+result.message(),null,-1));
+                rebuildIssues();
             }));
+    }
+    private void rebuildIssues() {
+        issues.clear();previewIssues.forEach(issues::addElement);buildIssues.forEach(issues::addElement);refreshBuildHighlights();
+    }
+    private void refreshPreviewIssues() {
+        previewIssues.clear();
+        if(previewDiagnostics!=null)for(var diagnostic:previewDiagnostics.diagnostics()) {
+            var mapped=deck!=null && !previewInputsDirty && SlidevDeckSupport.matches(deck)?PreviewDiagnostics.locate(deck,diagnostic):java.util.Optional.<ImportedDeck.MappedDiagnostic>empty();
+            String position=mapped.map(value -> value.path().getFileName()+": line "+value.location().line()+", column "+value.location().column()+(diagnostic.slide()>0?" (slide-relative mapping)":""))
+                .orElse(diagnostic.path().isEmpty()?"No source position":diagnostic.path()+(diagnostic.slide()>0?", slide "+diagnostic.slide():"")+(diagnostic.line()>0?", reported "+diagnostic.line()+":"+diagnostic.column():""));
+            previewIssues.add(new BuildIssue("[Preview] "+position+": "+diagnostic.message(),mapped.map(ImportedDeck.MappedDiagnostic::path).orElse(null),mapped.map(value -> value.location().offset()).orElse(-1)));
+        }
+        if(previewFailure!=null && previewIssues.isEmpty())previewIssues.add(new BuildIssue("[Preview] "+previewFailure,null,-1));
+        previewHealth.setText(previewFailure!=null?"Preview unavailable: "+previewFailure:previewIssues.isEmpty()?"Preview: no current diagnostics":"Preview: "+previewIssues.size()+" error(s) reported");
+        recoveryActions.setVisible(previewFailure!=null || !previewIssues.isEmpty());
+        rebuildIssues();panel.revalidate();
+    }
+    private void previewFailed(String message) {
+        previewFailure=message;refreshPreviewIssues();
     }
     private void refreshBuildHighlights() {
         buildHighlights.forEach(RangeHighlighter::dispose);buildHighlights.clear();
@@ -372,6 +404,7 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
     }
     private void restartPreview() {
         if(disposed)return;
+        previewGeneration.incrementAndGet();previewDiagnostics=null;previewFailure=null;refreshPreviewIssues();
         log.append("\n[Preview] Restart requested\n");stopPreview();restartPending=true;status.setText("Restarting Slidev…");saveDeckDocuments();
         refreshDeck(null);
     }
@@ -395,13 +428,15 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
             stopPreview();
             status.setText("Preview failed: "+ex.getClass().getSimpleName()+". Open Show Slidev log.");
             var trace=new java.io.StringWriter();ex.printStackTrace(new java.io.PrintWriter(trace));
-            log.append(trace.toString());
+            log.append(trace.toString());previewFailed("Preview initialization failed: "+ex.getClass().getSimpleName());
         }
     }
     private void startPreviewInternal(Project project) {
         if(server!=null || disposed) return;
         if(!JBCefApp.isSupported()) { status.setText("JCEF unavailable. Use JetBrains Runtime with JCEF.");return; }
-        WriteIntentReadAction.run(() -> FileDocumentManager.getInstance().saveDocument(getEditor().getDocument()));
+        WriteIntentReadAction.run(this::saveDeckDocuments);
+        previewGeneration.incrementAndGet();previewFailure=null;
+        PreviewDiagnostics diagnostics=new PreviewDiagnostics();previewDiagnostics=diagnostics;refreshPreviewIssues();
         log.append("\n[Preview] Starting Slidev at "+java.time.LocalTime.now()+"\n");status.setText("Starting Slidev…");
         browser=new JBCefBrowser();
         navigationQuery=JBCefJSQuery.create((JBCefBrowserBase)browser);
@@ -429,8 +464,9 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
                 onEdt(() -> {
                     if(browser!=activeBrowser) return;
                     log.append("[Browser] Main frame loaded: HTTP "+code+" "+address+"\n");
-                    if(code>=200 && code<400) status.setText("Preview loaded");
-                    else if(code>=400) status.setText("Preview failed: HTTP "+code+". Open Show Slidev log.");
+                    if(code>=200 && code<400) {previewFailure=null;refreshPreviewIssues();if(previewIssues.isEmpty())status.setText("Preview loaded");}
+                    else if(code>=400) {status.setText("Preview failed: HTTP "+code+". Open Show Slidev log.");previewFailed("HTTP "+code);}
+
                 });
                 if(code>=200 && code<400) {
                     cef.executeJavaScript(navigationScript,address,0);
@@ -442,15 +478,20 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
                 onEdt(() -> {
                     if(browser!=activeBrowser) return;
                     status.setText("Preview failed: "+text);
-                    log.append("[Browser] Load error "+code+": "+text+" "+address+"\n");
+                    log.append("[Browser] Load error "+code+": "+text+" "+address+"\n");previewFailed("Browser load failed: "+text);
                 });
             }
         },browser.getCefBrowser());
         browserHost.removeAll();browserHost.add(browser.getComponent(),BorderLayout.CENTER);browserHost.revalidate();browserHost.repaint();
-        SlidevServer session=new SlidevServer(line -> onEdt(() -> {
-            if(log.getDocument().getLength()>100_000) log.setText(log.getText().substring(50_000));
-            log.append(line+"\n");log.setCaretPosition(log.getDocument().getLength());
-        }));
+        SlidevServer session=new SlidevServer(line -> {
+            long generation=previewGeneration.get();
+            onEdt(() -> {
+                if(log.getDocument().getLength()>100_000) log.setText(log.getText().substring(50_000));
+                log.append(line+"\n");log.setCaretPosition(log.getDocument().getLength());
+                if(previewDiagnostics!=diagnostics || generation!=previewGeneration.get() || previewInputsDirty)return;
+                if(diagnostics.accept(line))refreshPreviewIssues();
+            });
+        });
         server=session;
         session.start(Path.of(entryFile.getPath()),SlidevSettings.get(project).getState().nodeExecutable,
             url -> onEdt(() -> {
@@ -468,7 +509,7 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
                 });
             }),message -> onEdt(() -> {
                 if(server!=session) return;
-                log.append("[Preview] "+message+"\n");stopPreview();status.setText(message+" Use Show Slidev log.");
+                log.append("[Preview] "+message+"\n");stopPreview();status.setText(message+" Use Show Slidev log.");previewFailed(message);
             }));
     }
     private void stopPreview() {
@@ -520,6 +561,7 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
     }
     private void deckChanged() {
         editRevision++;changeTimer.restart();
+        if(previewDiagnostics!=null)previewDiagnostics.clear();refreshPreviewIssues();
         if(syncNavigation && presentation==null){caretNavigationPending=true;caretTimer.restart();}
         cancelBuild();clearBuildIssues();buildStatus.setText("Deck changed. Check build again.");
     }
@@ -564,6 +606,7 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
                 if(!snapshot.issues().isEmpty() && !detail.equals(deckStatus.getToolTipText()))log.append("[Deck] "+detail+"\n");
                 deckStatus.setToolTipText(detail);
                 if(server!=null && server.isAlive())saveDeckDocuments();
+                refreshPreviewIssues();
                 if(restartPending){restartPending=false;startPreview(project);}
                 if(ready!=null)ready.run();
                 if(syncNavigation && presentation==null)syncPreviewToCaret();
@@ -572,12 +615,22 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
     }
     private void saveDeckDocuments() {
         var manager=FileDocumentManager.getInstance();
+        boolean saving=manager.isDocumentUnsaved(getEditor().getDocument());
+        if(deck!=null)for(Path path:deck.sources().keySet()) {
+            var source=LocalFileSystem.getInstance().findFileByPath(path.toString().replace('\\','/'));
+            var document=source==null?null:manager.getCachedDocument(source);
+            saving|=document!=null && manager.isDocumentUnsaved(document);
+        }
+        // Never carry pre-save diagnostics across an initially unknown dirty import.
+        if(saving){previewGeneration.incrementAndGet();if(previewDiagnostics!=null)previewDiagnostics.clear();}
         manager.saveDocument(getEditor().getDocument());
         if(deck!=null)for(Path path:deck.sources().keySet()) {
             var source=LocalFileSystem.getInstance().findFileByPath(path.toString().replace('\\','/'));
             var document=source==null?null:manager.getCachedDocument(source);
             if(document!=null && manager.isDocumentUnsaved(document))manager.saveDocument(document);
         }
+        previewInputsDirty=deck!=null && !SlidevDeckSupport.matches(deck);
+        if(saving)refreshPreviewIssues();
     }
     private void showSource(Path path,int offset,boolean focus) {
         if(path==null || disposed)return;
@@ -647,7 +700,7 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
     @Override public VirtualFile getFile() { return file; }
     @Override public void dispose() {
         if(disposed) return;
-        changeTimer.stop();caretTimer.stop();cancelBuild();clearBuildIssues();stopPreview();disposed=true;
+        changeTimer.stop();caretTimer.stop();cancelBuild();previewIssues.clear();clearBuildIssues();stopPreview();disposed=true;
         deckRequest++;if(deckTask!=null)deckTask.cancel(true);
         sourceEditors.values().forEach(Disposer::dispose);sourceEditors.clear();
         if(logDialog!=null){logDialog.dispose();logDialog=null;}
