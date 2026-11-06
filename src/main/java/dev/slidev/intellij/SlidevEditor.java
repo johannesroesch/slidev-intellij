@@ -19,6 +19,7 @@ import dev.slidev.intellij.core.BuildDiagnostics;
 import dev.slidev.intellij.core.SlideNavigation;
 import dev.slidev.intellij.core.ImportedDeck;
 import dev.slidev.intellij.core.PreviewDiagnostics;
+import dev.slidev.intellij.core.DiagnosticSources;
 import com.intellij.openapi.editor.EditorFactory;
 import com.intellij.openapi.progress.ProgressManager;
 import com.intellij.openapi.vfs.LocalFileSystem;
@@ -77,6 +78,19 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
     private final JList<BuildIssue> issueList=new JList<>(issues);
     private final List<BuildIssue> buildIssues=new ArrayList<>(),previewIssues=new ArrayList<>();
     private PreviewDiagnostics previewDiagnostics;
+    private final java.util.Map<Path,DiagnosticSources.Source> vueSources=new java.util.HashMap<>();
+    private final java.util.Map<Path,dev.slidev.intellij.core.ExpressionChecker.Result> vueChecks=new java.util.HashMap<>();
+    private final java.util.Map<Path,java.util.concurrent.Future<?>> vueTasks=new java.util.HashMap<>();
+    private final java.util.Map<Path,Long> vueRequests=new java.util.HashMap<>();
+    private final java.util.Set<Path> vueUnavailable=new java.util.HashSet<>();
+    private volatile java.util.Set<Path> vueWatches=java.util.Set.of();
+    private final java.util.concurrent.atomic.AtomicLong vueRevision=new java.util.concurrent.atomic.AtomicLong();
+    private final java.util.concurrent.ConcurrentMap<Path,Long> vueDiscoveries=new java.util.concurrent.ConcurrentHashMap<>();
+    private long vueRequest;
+    private List<BuildDiagnostics.Diagnostic> completedBuildDiagnostics=List.of();
+    private PreviewDiagnostics completedBuildDetails;
+    private ImportedDeck.Snapshot completedBuildSnapshot;
+    private String completedBuildFailure;
     private final java.util.concurrent.atomic.AtomicLong previewGeneration=new java.util.concurrent.atomic.AtomicLong();
     private volatile boolean previewInputsDirty;
     private String previewFailure;
@@ -84,7 +98,8 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
     private final JPanel recoveryActions=new JPanel(new FlowLayout(FlowLayout.RIGHT,4,0));
     private final List<RangeHighlighter> buildHighlights=new ArrayList<>();
     private SlidevBuild build;
-    private record BuildIssue(String label, Path path, int offset) {
+    private record BuildIssue(String label, Path path, int offset, String snapshot) {
+        BuildIssue(String label,Path path,int offset){this(label,path,offset,null);}
         @Override public String toString() { return label; }
     }
     private final List<RangeHighlighter> decorations=new ArrayList<>();
@@ -153,27 +168,59 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
         EditorFactory.getInstance().getEventMulticaster().addDocumentListener(new DocumentListener() {
             @Override public void documentChanged(@NotNull DocumentEvent event) {
                 var changed=FileDocumentManager.getInstance().getFile(event.getDocument());
-                if(changed==null || !belongs(changed.getPath()))return;
+                if(changed==null)return;
+                if(isVueSource(changed.getPath())) {
+                    Path path=ImportedDeck.normalize(Path.of(changed.getPath()));vueRevision.incrementAndGet();
+                    if(vueWatches.contains(path))previewGeneration.incrementAndGet();
+                    onEdt(() -> vueChanged(path));return;
+                }
+                if(!belongs(changed.getPath()))return;
                 previewGeneration.incrementAndGet();previewInputsDirty=true;onEdt(SlidevEditor.this::deckChanged);
             }
         },this);
+        EditorFactory.getInstance().addEditorFactoryListener(new EditorFactoryListener() {
+            @Override public void editorCreated(@NotNull EditorFactoryEvent event){if(event.getEditor().getProject()==project)onEdt(SlidevEditor.this::refreshBuildHighlights);}
+            @Override public void editorReleased(@NotNull EditorFactoryEvent event){if(event.getEditor().getProject()==project)onEdt(SlidevEditor.this::refreshBuildHighlights);}
+        },this);
         project.getMessageBus().connect(this).subscribe(VirtualFileManager.VFS_CHANGES,new BulkFileListener() {
             @Override public void after(@NotNull List<? extends VFileEvent> events) {
-                for(var event:events) if(belongs(event.getPath())) {
-                    var changed=event.getFile();
-                    var document=changed==null?null:FileDocumentManager.getInstance().getCachedDocument(changed);
-                    String previous=deck==null?null:deck.sources().get(ImportedDeck.normalize(Path.of(event.getPath())));
-                    if(event instanceof com.intellij.openapi.vfs.newvfs.events.VFileContentChangeEvent && document!=null && previous!=null && document.getText().equals(previous))continue;
-                    previewGeneration.incrementAndGet();previewInputsDirty=true;onEdt(SlidevEditor.this::deckChanged);break;
+                var vueChanges=new java.util.HashSet<Path>();boolean deckChange=false;
+                for(var event:events) {
+                    if(event instanceof com.intellij.openapi.vfs.newvfs.events.VFilePropertyChangeEvent property && !VirtualFile.PROP_NAME.equals(property.getPropertyName()))continue;
+                    Path affected=ImportedDeck.normalize(Path.of(event.getPath()));var previous=new java.util.ArrayList<Path>();previous.add(affected);
+                    if(event instanceof com.intellij.openapi.vfs.newvfs.events.VFilePropertyChangeEvent property && VirtualFile.PROP_NAME.equals(property.getPropertyName()) && affected.getParent()!=null)
+                        previous.add(affected.getParent().resolve(String.valueOf(property.getOldValue())));
+                    if(event instanceof com.intellij.openapi.vfs.newvfs.events.VFileMoveEvent moved)
+                        previous.add(Path.of(moved.getOldParent().getPath()).resolve(moved.getFile().getName()));
+                    for(Path old:previous)for(Path tracked:vueWatches)if(tracked.startsWith(old)) {
+                        if(event instanceof com.intellij.openapi.vfs.newvfs.events.VFileCreateEvent && vueDiscoveries.containsKey(tracked))continue;
+                        vueChanges.add(tracked);
+                    }
+                    if(isVueSource(event.getPath())) {
+                        boolean creation=event instanceof com.intellij.openapi.vfs.newvfs.events.VFileCreateEvent;
+                        if(!(creation && vueDiscoveries.containsKey(affected)) && (!creation || vueWatches.contains(affected) || build!=null))vueChanges.add(affected);
+                        continue;
+                    }
+                    if(!belongs(event.getPath()))continue;
+                    var changed=event.getFile();var document=changed==null?null:FileDocumentManager.getInstance().getCachedDocument(changed);
+                    String saved=deck==null?null:deck.sources().get(affected);
+                    if(event instanceof com.intellij.openapi.vfs.newvfs.events.VFileContentChangeEvent && document!=null && saved!=null && document.getText().equals(saved))continue;
+                    deckChange=true;
                 }
+                if(!vueChanges.isEmpty()) {
+                    vueRevision.incrementAndGet();if(vueChanges.stream().anyMatch(vueWatches::contains))previewGeneration.incrementAndGet();
+                    onEdt(() -> vueChanges.forEach(SlidevEditor.this::vueChanged));
+                }
+                if(deckChange){previewGeneration.incrementAndGet();previewInputsDirty=true;onEdt(SlidevEditor.this::deckChanged);}
             }
         });
         checkBuild.addActionListener(event -> onEdt(() -> { if(build!=null) cancelBuild();else checkBuild(project); }));
         issueList.addListSelectionListener(event -> {
             if(event.getValueIsAdjusting()) return;
             var issue=issueList.getSelectedValue();
-            if(issue==null || issue.offset()<0) return;
-            showSource(issue.path(),issue.offset(),true);
+            if(issue==null || issue.path()==null)return;
+            if(issue.path().getFileName().toString().toLowerCase(java.util.Locale.ROOT).endsWith(".vue")){onEdt(() -> openVueIssue(issue));return;}
+            if(issue.offset()>=0)showSource(issue.path(),issue.offset(),true);
         });
         outline.addActionListener(event -> {
             if(rebuilding || deck==null || !deck.reliable()) return;
@@ -249,7 +296,10 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
             if(syncNavigation) syncPreviewToCaret();
         }
         panel.revalidate();panel.repaint();
-        if(!SlidevSettings.get(project).getState().nodeExecutable.equals(deckNode))refreshDeck(null);
+        if(!SlidevSettings.get(project).getState().nodeExecutable.equals(deckNode)) {
+            vueRevision.incrementAndGet();vueTasks.values().forEach(task->task.cancel(true));vueTasks.clear();vueRequests.clear();vueDiscoveries.clear();vueSources.clear();vueChecks.clear();vueUnavailable.clear();
+            rebuildBuildIssues();refreshPreviewIssues();refreshDeck(null);
+        }
         if(inspectChanged && server!=null)restartPreview();
         else if(server==null) startVisiblePreview();
     }
@@ -345,6 +395,7 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
         } catch(IOException ex) { throw new IllegalStateException(ex); }
     }
     private void clearBuildIssues() {
+        completedBuildDiagnostics=List.of();completedBuildDetails=null;completedBuildSnapshot=null;completedBuildFailure=null;
         buildIssues.clear();rebuildIssues();
     }
     private void cancelBuild() {
@@ -358,7 +409,7 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
     private void checkResolvedBuild(Project project) {
         if(disposed || deck==null)return;
         saveDeckDocuments();
-        ImportedDeck.Snapshot snapshot=deck;long revision=editRevision;
+        ImportedDeck.Snapshot snapshot=deck;long revision=editRevision,componentRevision=vueRevision.get();
         clearBuildIssues();buildStatus.setText("Checking build…");checkBuild.setText("Cancel check");
         log.append("\n[Build check] Starting local Slidev build\n");
         SlidevBuild session=new SlidevBuild();build=session;
@@ -366,27 +417,35 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
             line -> onEdt(() -> {if(build!=session)return;if(log.getDocument().getLength()>100_000)log.setText(log.getText().substring(50_000));log.append("[Build] "+line+"\n");}),
             result -> onEdt(() -> {
                 if(build!=session)return;build=null;checkBuild.setText("Check build");
-                if(revision!=editRevision || !SlidevDeckSupport.matches(snapshot)){buildStatus.setText("Deck changed. Check build again.");return;}
+                if(revision!=editRevision || componentRevision!=vueRevision.get() || !SlidevDeckSupport.matches(snapshot)){buildStatus.setText("Deck changed. Check build again.");return;}
                 buildStatus.setText(result.message());
-                for(var diagnostic:result.diagnostics()) {
-                    var mapped=snapshot.locate(diagnostic);
-                    Path target=mapped.map(ImportedDeck.MappedDiagnostic::path).orElse(null);
-                    int offset=mapped.map(value -> value.location().offset()).orElse(-1);
-                    String position=mapped.map(value -> value.path().getFileName()+": line "+value.location().line()+", column "+value.location().column()+" (slide-relative mapping)")
-                        .orElse(diagnostic.path()+", slide "+diagnostic.slide()+", generated "+diagnostic.line()+":"+diagnostic.column());
-                    buildIssues.add(new BuildIssue("[Build] "+position+": "+diagnostic.message(),target,offset));
-                }
-                if(!result.success() && buildIssues.isEmpty())buildIssues.add(new BuildIssue("[Build] "+result.message(),null,-1));
-                rebuildIssues();
+                completedBuildDiagnostics=result.diagnostics();completedBuildDetails=result.details();completedBuildSnapshot=snapshot;completedBuildFailure=result.success()?null:result.message();
+                rebuildBuildIssues();
+                refreshPreviewIssues();
             }));
+    }
+    private void rebuildBuildIssues() {
+        if(completedBuildSnapshot==null)return;
+        buildIssues.clear();Path entry=Path.of(entryFile.getPath());
+        for(var diagnostic:completedBuildDiagnostics) {
+            var path=DiagnosticSources.vuePath(entry,diagnostic);
+            if(path.isPresent()){buildIssues.add(vueIssue("[Build] ",diagnostic,completedBuildDetails,path.get()));continue;}
+            var mapped=completedBuildSnapshot.locate(diagnostic);
+            String position=mapped.map(value -> value.path().getFileName()+": line "+value.location().line()+", column "+value.location().column()+" (slide-relative mapping)")
+                .orElse(diagnostic.path()+", slide "+diagnostic.slide()+", generated "+diagnostic.line()+":"+diagnostic.column());
+            buildIssues.add(new BuildIssue("[Build] "+position+": "+diagnostic.message(),mapped.map(ImportedDeck.MappedDiagnostic::path).orElse(null),mapped.map(value->value.location().offset()).orElse(-1)));
+        }
+        if(buildIssues.isEmpty() && completedBuildFailure!=null)buildIssues.add(new BuildIssue("[Build] "+completedBuildFailure,null,-1));
     }
     private void rebuildIssues() {
         issues.clear();previewIssues.forEach(issues::addElement);buildIssues.forEach(issues::addElement);refreshBuildHighlights();
     }
     private void refreshPreviewIssues() {
-        previewIssues.clear();
+        previewIssues.clear();scheduleVueSources();
         boolean canMap=deck!=null && !previewInputsDirty && SlidevDeckSupport.matches(deck);
         if(previewDiagnostics!=null)for(var diagnostic:previewDiagnostics.diagnostics()) {
+            var vue=DiagnosticSources.vuePath(Path.of(entryFile.getPath()),diagnostic);
+            if(vue.isPresent()){previewIssues.add(vueIssue("[Preview] ",diagnostic,previewDiagnostics,vue.get()));continue;}
             var mapped=canMap?previewDiagnostics.locateCurrent(deck,diagnostic):java.util.Optional.<ImportedDeck.MappedDiagnostic>empty();
             String position=mapped.map(value -> value.path().getFileName()+": line "+value.location().line()+", column "+value.location().column()+(diagnostic.slide()>0?" (slide-relative mapping)":""))
                 .orElse(diagnostic.path().isEmpty()?"No source position":diagnostic.path()+(diagnostic.slide()>0?", slide "+diagnostic.slide():"")+(diagnostic.line()>0?", reported "+diagnostic.line()+":"+diagnostic.column():""));
@@ -397,16 +456,97 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
         recoveryActions.setVisible(previewFailure!=null || !previewIssues.isEmpty());
         rebuildIssues();panel.revalidate();
     }
+    private boolean isVueSource(String path) {
+        if(!path.toLowerCase(java.util.Locale.ROOT).endsWith(".vue"))return false;
+        Path file=ImportedDeck.normalize(Path.of(path));
+        return vueWatches.contains(file) || file.startsWith(Path.of(entryFile.getPath()).getParent()) ||
+            (project.getBasePath()!=null && file.startsWith(Path.of(project.getBasePath())));
+    }
+    private void vueChanged(Path path) {
+        vueSources.remove(path);vueChecks.remove(path);vueUnavailable.remove(path);vueRequests.remove(path);
+        var task=vueTasks.remove(path);if(task!=null)task.cancel(true);
+        if(previewDiagnostics!=null)previewDiagnostics.invalidateVue(Path.of(entryFile.getPath()),path);
+        cancelBuild();clearBuildIssues();buildStatus.setText("Vue source changed. Check build again.");refreshPreviewIssues();
+    }
+    private BuildIssue vueIssue(String prefix,BuildDiagnostics.Diagnostic diagnostic,PreviewDiagnostics details,Path path) {
+        var source=vueSources.get(path);
+        var mapped=source==null || details==null?java.util.Optional.<ImportedDeck.MappedDiagnostic>empty():details.locateVue(Path.of(entryFile.getPath()),diagnostic,source,vueChecks.get(path));
+        String position=path+(mapped.isPresent()?": line "+mapped.get().location().line()+", column "+mapped.get().location().column():" (reported "+diagnostic.line()+":"+diagnostic.column()+", position not verified)");
+        return new BuildIssue(prefix+position+": "+diagnostic.message(),path,mapped.map(value->value.location().offset()).orElse(-1),source==null?null:source.text());
+    }
+    private void scheduleVueSources() {
+        var candidates=new java.util.LinkedHashSet<Path>();Path entry=Path.of(entryFile.getPath());
+        if(previewDiagnostics!=null)for(var d:previewDiagnostics.diagnostics())DiagnosticSources.vuePath(entry,d).ifPresent(candidates::add);
+        for(var d:completedBuildDiagnostics)DiagnosticSources.vuePath(entry,d).ifPresent(candidates::add);
+        vueWatches=java.util.Set.copyOf(candidates);vueSources.keySet().retainAll(candidates);vueChecks.keySet().retainAll(candidates);vueUnavailable.retainAll(candidates);
+        int count=0;
+        for(Path path:candidates) {
+            if(++count>32 || vueTasks.size()>=4)break;
+            if(vueSources.containsKey(path) || vueTasks.containsKey(path) || vueUnavailable.contains(path))continue;
+            var virtual=LocalFileSystem.getInstance().findFileByPath(path.toString().replace('\\','/'));
+            var document=virtual==null?null:FileDocumentManager.getInstance().getCachedDocument(virtual);
+            if(document!=null && FileDocumentManager.getInstance().isDocumentUnsaved(document))continue;
+            long request=++vueRequest,revision=vueRevision.get();vueRequests.put(path,request);
+            String node=SlidevSettings.get(project).getState().nodeExecutable;
+            vueTasks.put(path,ApplicationManager.getApplication().executeOnPooledThread(() -> {
+                try {
+                var source=DiagnosticSources.read(path);
+                if(source.isPresent())vueDiscoveries.put(path,request);
+                var file=LocalFileSystem.getInstance().refreshAndFindFileByPath(path.toString().replace('\\','/'));
+                var checked=source.isPresent()?DiagnosticSources.analyze(source.get(),entry,node,()->{ProgressManager.checkCanceled();if(Thread.currentThread().isInterrupted() || disposed || project.isDisposed())throw new java.util.concurrent.CancellationException();}):null;
+                onEdt(() -> {
+                    vueDiscoveries.remove(path,request);
+                    if(!java.util.Objects.equals(vueRequests.get(path),request))return;
+                    vueRequests.remove(path);vueTasks.remove(path);
+                    if(revision==vueRevision.get()) {
+                        var cached=file==null?null:FileDocumentManager.getInstance().getCachedDocument(file);
+                        if(source.isPresent() && (cached==null || (!FileDocumentManager.getInstance().isDocumentUnsaved(cached) && source.get().matches(cached.getText())))){vueSources.put(path,source.get());vueChecks.put(path,checked);}
+                        else vueUnavailable.add(path);
+                    }
+                    rebuildBuildIssues();refreshPreviewIssues();
+                });
+                } catch(java.util.concurrent.CancellationException canceled) {onEdt(() -> vueLoadFailed(path,request));}
+                catch(RuntimeException ex){onEdt(() -> {log.append("[Vue source] "+ex+"\n");vueLoadFailed(path,request);});}
+            }));
+        }
+    }
+    private void vueLoadFailed(Path path,long request) {
+        vueDiscoveries.remove(path,request);if(!java.util.Objects.equals(vueRequests.get(path),request))return;
+        vueRequests.remove(path);vueTasks.remove(path);vueUnavailable.add(path);rebuildBuildIssues();refreshPreviewIssues();
+    }
+    private void openVueIssue(BuildIssue issue) {
+        var file=LocalFileSystem.getInstance().findFileByPath(issue.path().toString().replace('\\','/'));
+        if(file!=null){openVueIssue(issue,file);return;}
+        status.setText("Loading source: "+issue.path());
+        ApplicationManager.getApplication().executeOnPooledThread(() -> {
+            var found=LocalFileSystem.getInstance().refreshAndFindFileByPath(issue.path().toString().replace('\\','/'));
+            onEdt(() -> openVueIssue(issue,found));
+        });
+    }
+    private void openVueIssue(BuildIssue issue,VirtualFile file) {
+        if(file==null || !file.isValid()){status.setText("Source file unavailable: "+issue.path());return;}
+        var document=FileDocumentManager.getInstance().getDocument(file);
+        if(issue.offset()>=0 && (document==null || issue.snapshot()==null || !issue.snapshot().equals(document.getText()))){vueChanged(issue.path());return;}
+        if(issue.offset()>=0)FileEditorManager.getInstance(project).openTextEditor(new OpenFileDescriptor(project,file,issue.offset()),true);
+        else FileEditorManager.getInstance(project).openFile(file,true);
+        refreshBuildHighlights();
+    }
     private void previewFailed(String message) {
         previewFailure=message;refreshPreviewIssues();
     }
     private void refreshBuildHighlights() {
-        buildHighlights.forEach(RangeHighlighter::dispose);buildHighlights.clear();
+        buildHighlights.forEach(highlighter->{if(highlighter.isValid())highlighter.dispose();});buildHighlights.clear();
         TextAttributes error=new TextAttributes(null,null,JBColor.RED,EffectType.WAVE_UNDERSCORE,Font.PLAIN);
-        for(int i=0;i<issues.size();i++) {
-            var issue=issues.get(i);if(issue.path()==null || !issue.path().equals(ImportedDeck.normalize(Path.of(currentSource.getPath()))) || issue.offset()<0 || issue.offset()>=getEditor().getDocument().getTextLength())continue;
-            var highlighter=getEditor().getMarkupModel().addRangeHighlighter(issue.offset(),issue.offset()+1,HighlighterLayer.ERROR,error,HighlighterTargetArea.EXACT_RANGE);
-            highlighter.setErrorStripeMarkColor(JBColor.RED);highlighter.setErrorStripeTooltip(issue.label());buildHighlights.add(highlighter);
+        for(var editor:EditorFactory.getInstance().getAllEditors()) {
+            if(editor.isDisposed() || editor.getProject()!=project)continue;
+            var file=FileDocumentManager.getInstance().getFile(editor.getDocument());if(file==null)continue;
+            Path path=ImportedDeck.normalize(Path.of(file.getPath()));
+            for(int i=0;i<issues.size();i++) {
+                var issue=issues.get(i);if(issue.path()==null || !issue.path().equals(path) || issue.offset()<0 || issue.offset()>=editor.getDocument().getTextLength())continue;
+                if(issue.snapshot()!=null && !issue.snapshot().equals(editor.getDocument().getText()))continue;
+                var highlighter=editor.getMarkupModel().addRangeHighlighter(issue.offset(),issue.offset()+1,HighlighterLayer.ERROR,error,HighlighterTargetArea.EXACT_RANGE);
+                highlighter.setErrorStripeMarkColor(JBColor.RED);highlighter.setErrorStripeTooltip(issue.label());buildHighlights.add(highlighter);
+            }
         }
     }
     private void startVisiblePreview() {
@@ -715,6 +855,7 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
         if(disposed) return;
         changeTimer.stop();caretTimer.stop();cancelBuild();previewIssues.clear();clearBuildIssues();stopPreview();disposed=true;
         deckRequest++;if(deckTask!=null)deckTask.cancel(true);
+        vueTasks.values().forEach(task->task.cancel(true));vueTasks.clear();vueRequests.clear();vueDiscoveries.clear();vueSources.clear();vueChecks.clear();vueWatches=java.util.Set.of();
         sourceEditors.values().forEach(Disposer::dispose);sourceEditors.clear();
         if(logDialog!=null){logDialog.dispose();logDialog=null;}
     }

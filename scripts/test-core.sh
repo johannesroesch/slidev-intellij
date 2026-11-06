@@ -12,3 +12,4 @@ java -ea -cp "$test_dir" dev.slidev.intellij.core.ReferencesTest
 java -ea -cp "$test_dir" dev.slidev.intellij.core.CombinedFeaturesTest
 java -ea -cp "$test_dir" dev.slidev.intellij.core.PreviewDiagnosticsTest
 java -ea -cp "$test_dir:$project_dir/src/main/resources" dev.slidev.intellij.core.PreviewServerTest "${SLIDEV_TEST_NODE:-node}"
+java -ea -cp "$test_dir:$project_dir/src/main/resources" dev.slidev.intellij.core.VueDiagnosticsTest

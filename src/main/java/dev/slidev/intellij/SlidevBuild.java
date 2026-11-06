@@ -2,6 +2,7 @@ package dev.slidev.intellij;
 
 import com.intellij.openapi.application.ApplicationManager;
 import dev.slidev.intellij.core.BuildDiagnostics;
+import dev.slidev.intellij.core.PreviewDiagnostics;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
@@ -12,7 +13,7 @@ import java.util.function.Consumer;
 
 /** Explicit build validation, never overwrites the project's dist directory. */
 final class SlidevBuild implements AutoCloseable {
-    record Result(boolean success, String message, List<BuildDiagnostics.Diagnostic> diagnostics) {}
+    record Result(boolean success, String message, List<BuildDiagnostics.Diagnostic> diagnostics, PreviewDiagnostics details) {}
     private final AtomicBoolean cancelled=new AtomicBoolean();
     private volatile Process process;
     void start(Path entry, String node, Consumer<String> log, Consumer<Result> complete) {
@@ -49,11 +50,14 @@ final class SlidevBuild implements AutoCloseable {
                     throw new IOException("Build check timed out after 120 seconds.");
                 }
                 String text=captured.get(10,TimeUnit.SECONDS);
+                var details=new PreviewDiagnostics();details.accept(text);
+                var diagnostics=new java.util.ArrayList<>(BuildDiagnostics.parse(text));
+                for(var diagnostic:details.diagnostics())if(diagnostic.slide()==0 && diagnostic.path().endsWith(".vue") && !diagnostics.contains(diagnostic))diagnostics.add(diagnostic);
                 if(!cancelled.get()) complete.accept(new Result(child.exitValue()==0,
-                    child.exitValue()==0?"Build passed":"Build failed (exit "+child.exitValue()+"). See log.",BuildDiagnostics.parse(text)));
+                    child.exitValue()==0?"Build passed":"Build failed (exit "+child.exitValue()+"). See log.",List.copyOf(diagnostics),details));
             } catch(Exception ex) {
                 if(process!=null) SlidevServer.terminate(process);
-                if(!cancelled.get()) complete.accept(new Result(false,ex.getMessage()==null?ex.toString():ex.getMessage(),List.of()));
+                if(!cancelled.get()) complete.accept(new Result(false,ex.getMessage()==null?ex.toString():ex.getMessage(),List.of(),new PreviewDiagnostics()));
                 if(ex instanceof InterruptedException) Thread.currentThread().interrupt();
             } finally {
                 if(output!=null) try(var paths=Files.walk(output)) {

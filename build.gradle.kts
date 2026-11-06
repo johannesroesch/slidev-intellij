@@ -5,7 +5,7 @@ plugins {
     id("org.jetbrains.intellij.platform") version "2.19.0"
 }
 group = "dev.slidev"
-version = "0.1.19"
+version = "0.1.20"
 // Keep the older API baseline; allow building/running against a specific 263 build.
 val platformVersion = providers.gradleProperty("platformVersion").orElse("2026.2.3")
 val verificationVersion = providers.gradleProperty("verificationVersion").orElse("263.7307.112")
@@ -95,10 +95,19 @@ tasks.register<JavaExec>("previewServerTest") {
     providers.gradleProperty("slidevTestProject").orNull?.let { args(it) }
     enableAssertions = true
 }
-tasks.check { dependsOn("coreTest", "viewTest", "syntaxTest", "completionTest", "expressionTest", "referencesTest", "combinedFeaturesTest", "previewDiagnosticsTest", "previewServerTest") }
+tasks.register<JavaExec>("vueDiagnosticsTest") {
+    dependsOn(tasks.testClasses)
+    classpath = sourceSets.test.get().runtimeClasspath
+    mainClass = "dev.slidev.intellij.core.VueDiagnosticsTest"
+    providers.gradleProperty("slidevTestProject").orNull?.let {
+        args(providers.gradleProperty("slidevTestNode").orElse("node").get(), it)
+    }
+    enableAssertions = true
+}
+tasks.check { dependsOn("coreTest", "viewTest", "syntaxTest", "completionTest", "expressionTest", "referencesTest", "combinedFeaturesTest", "previewDiagnosticsTest", "previewServerTest", "vueDiagnosticsTest") }
 tasks.test {
     // CoreTest is a standalone main-based harness, not a JUnit test class.
     // Keep its checks mandatory even when invoking the test task directly.
-    dependsOn("coreTest", "viewTest", "syntaxTest", "completionTest", "expressionTest", "referencesTest", "combinedFeaturesTest", "previewDiagnosticsTest", "previewServerTest")
+    dependsOn("coreTest", "viewTest", "syntaxTest", "completionTest", "expressionTest", "referencesTest", "combinedFeaturesTest", "previewDiagnosticsTest", "previewServerTest", "vueDiagnosticsTest")
     failOnNoDiscoveredTests.set(false)
 }

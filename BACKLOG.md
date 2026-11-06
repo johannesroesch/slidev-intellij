@@ -1,5 +1,16 @@
 # Backlog
 
+## 0.1.20: Vue-Fehlernavigation
+
+* [x] Lokale Vue-Komponenten-, Layout- und Theme-Dateien aus Preview-/Build-Meldungen öffnen.
+* [x] Originaldatei mit lokalem Vue-SFC-Compiler prüfen und eindeutige Fehlerpositionen abgleichen.
+* [x] Gespeicherte Schnappschüsse vor Sprüngen/Markierungen mit dem aktuellen Dokument vergleichen.
+* [x] Vue-Dokument-/Dateiänderungen und native Editor-Lebenszyklen berücksichtigen.
+* [x] Begrenzte Hintergrundanalyse und Abbruch veralteter Ergebnisse.
+* [x] 25 reine und 24 zusätzliche echte Slidev-/Vue-Prüfungen je getesteter Version.
+* [ ] SDK-Build/Verifier des aktuellen Stands bestätigen und nativen IDE-Akzeptanztest durchführen.
+* [ ] Strukturierte Transform-/Source-Map-Diagnosen für Fälle ohne eindeutige Originalfehlermeldung.
+
 ## 0.1.19: Prozess- und Integrationsvalidierung
 
 * [x] Serverprozess aus IDE-Adapter herauslösen und dieselbe Implementierung unabhängig prüfen.

@@ -706,3 +706,64 @@ https://github.com/johannesroesch/slidev-intellij/actions/runs/42189051108
 
 The following documentation-only commit records these results without changing
 the verified production/test/workflow code or rebuilding the same artifact.
+
+## 0.1.20: Vue components, layouts and theme source navigation
+
+* Local Vue targets are resolved separately from deck numbering. Added bounded
+  normalized UTF-8 snapshots (BOM/CRLF to native document text), strict offsets,
+  file URI/Vite fs paths and a conservative compiler-message correlation.
+* Full Slidev revealed another offset trap: context injection prepends/inserts
+  code into .vue files as a plain string without a Source Map. A template error
+  on original line 2 is logged on generated line 7 without a code frame. Therefore
+  bare .vue filenames/coordinates are NOT assumed to be original coordinates.
+* The helper uses the presentation's installed vue/compiler-sfc, consistent with
+  Vite's root compiler lookup and real-CLI fallback. It parses original templates
+  and isolated JS/TS script blocks, never executing component expressions. Babel
+  parser offsets are translated from block content to original UTF-16 offsets.
+  Only a single matching original compiler message or unique excerpt is mapped.
+  Ambiguous errors and missing evidence retain file navigation without a marker.
+* Vue build output is parsed along with the existing Markdown build diagnostics.
+  Build results retain their detailed compiler excerpts for later asynchronous
+  source resolution. Preview/build Vue issues open via FileEditorManager and
+  OpenFileDescriptor, using the normal editor rather than the Slidev code host.
+* Native document text must match the complete snapshot before applying markers
+  or navigating. Document/VFS edits invalidate tracked Vue diagnostics and build
+  results. Editor-created/released events update markers across native editors.
+  Background loads are revision/request guarded, canceled on disposal/settings
+  changes, limited to 32 active sources and four tasks. Initial VFS discovery is
+  distinguished from actual source creation/modification to avoid discarding a
+  fresh build result merely because a source had not been indexed yet.
+
+Executed locally:
+* PASS: ECJ/Java 17 compilation of all core classes/tests and 25 pure Vue source
+  checks (normalization, stale snapshots, path forms, strict positions, bounds,
+  direct/generated excerpts, ambiguity and compiler-message matching).
+* PASS: 49 combined checks separately with full Slidev 52.14.1 and 52.20.1. Real
+  HTTP requests trigger template/directive errors in components/layouts and TS
+  script errors both before and after a template with Unicode. The original
+  Vue compiler recovers original line positions; corrections compile in the
+  same server. Full CLI builds also produce a Vue error that is mapped correctly.
+* Observed: failed Vue transforms return no current inline Source Map/error map
+  in the standard HTTP/CLI diagnostic channel. No stale success map is reused.
+  Arbitrary transform Source Maps are not implemented by this change.
+* PASS: all existing core suites, 30 real preview lifecycle/Slidev checks, Swing
+  layout and navigation/fullscreen browser fixtures.
+* SDK compilation/Verifier and native Vue editor navigation/highlighting must be
+  validated separately. Local Java remains 17; SDK validation runs on GitHub.
+
+Manual IDE acceptance:
+1. Build/install 0.1.20. Use the existing dev.slidev.editor identity. No extra ID
+   migration is required from 0.1.19; older identities still need removal.
+2. Put {{ 1 + }} into components/Bad.vue used by a slide. Wait for a preview
+   error, select its issue, and verify the normal Vue editor opens at the actual
+   source line with a marker. Return to the Slidev tab without restarting it.
+3. Repeat for a custom layout and an installed/local theme Vue source, including
+   TS syntax errors and paths with spaces. Check build must navigate likewise.
+4. Edit an affected Vue document without saving: old markers and warnings clear;
+   no older saved-source coordinates reappear in the dirty document. Save, trigger
+   compilation and check fresh diagnostics. Rename/delete/recreate the file.
+5. Open a Vue editor before and after the diagnostic arrives; verify markers,
+   split editor views, close cleanup and unchanged unrelated editor markup.
+6. Verify ambiguous/generated errors, unavailable compilers, read-only theme
+   files, rapid changes, Node settings changes and project/editor disposal. File
+   navigation must remain useful without a guessed offset or stale highlight.

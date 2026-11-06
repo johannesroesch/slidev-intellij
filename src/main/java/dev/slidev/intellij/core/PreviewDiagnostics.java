@@ -47,11 +47,11 @@ public final class PreviewDiagnostics {
                 setLocation(text.substring(5).strip());continue;
             }
             // Also accept the explicit virtual-file format used by startup failures.
-            if(text.contains("__slidev_") && !text.startsWith("(")) {
+            if((text.contains("__slidev_") || text.startsWith("[plugin ") || text.startsWith("[vite:")) && !text.startsWith("(")) {
                 String location=text.replaceFirst("^.*?\\[plugin [^]]+\\]\\s*", "").replaceFirst("^.*?\\[vite:[^]]+\\]\\s*", "").replaceFirst("^file:\\s*", "");
                 var position=POSITION.matcher(location);
                 if(position.matches()) {
-                    if(message==null)begin(position.group(6)!=null?position.group(6):"Slidev compilation error");
+                    if(message==null || text.startsWith("[plugin ") || text.startsWith("[vite:"))begin(position.group(6)!=null?position.group(6):"Slidev compilation error");
                     setLocation(location);
                 }
             }
@@ -73,15 +73,36 @@ public final class PreviewDiagnostics {
         if(!path.matches(".+\\.(?:md|markdown|vue|[cm]?[jt]sx?|ya?ml|json|css|scss)"))return;
         int slide=0;var virtual=VIRTUAL.matcher(path);
         if(virtual.matches()) {path=virtual.group(1);try{slide=Integer.parseInt(virtual.group(2));}catch(NumberFormatException ignored){return;}}
-        replace(new BuildDiagnostics.Diagnostic(path,slide,line,column,message));
+        var diagnostic=new BuildDiagnostics.Diagnostic(path,slide,line,column,message);
+        replace(diagnostic);
     }
     private void replace(BuildDiagnostics.Diagnostic next) {
+        boolean same=pending!=null && pending.path().equals(next.path()) && pending.slide()==next.slide() && pending.line()==next.line() && pending.column()==next.column();
+        String previousFrame=same?frames.get(pending):null;
         if(pending!=null)diagnostics.remove(pending);
         // Internal/pre-transform reports of the same error share one list entry.
         diagnostics.removeIf(item -> item.equals(next) || (!next.path().isEmpty() && item.path().equals(next.path()) && item.slide()==next.slide() && item.line()==next.line() && item.column()==next.column()));
         diagnostics.add(next);pending=next;
         if(diagnostics.size()>100)diagnostics.remove(0);
         frames.keySet().retainAll(diagnostics);
+        if(previousFrame!=null)frames.put(next,previousFrame);
+    }
+    public void invalidateVue(Path entry,Path path) {
+        diagnostics.removeIf(d->DiagnosticSources.vuePath(entry,d).filter(path::equals).isPresent());
+        frames.keySet().retainAll(diagnostics);
+        if(pending!=null && !diagnostics.contains(pending)){pending=null;message=null;}
+    }
+    public Optional<ImportedDeck.MappedDiagnostic> locateVue(Path entry,BuildDiagnostics.Diagnostic diagnostic,DiagnosticSources.Source source,ExpressionChecker.Result checked) {
+        if(DiagnosticSources.vuePath(entry,diagnostic).filter(source.path()::equals).isEmpty())return Optional.empty();
+        var compiled=DiagnosticSources.compilerPosition(source,diagnostic,checked);
+        if(compiled.isPresent())return compiled.map(point->new ImportedDeck.MappedDiagnostic(source.path(),point));
+        // Slidev injects code without a Source Map. Bare .vue coordinates alone are
+        // not evidence of original positions, even when the query string is absent.
+        String frame=frames.get(diagnostic);if(frame==null)return Optional.empty();
+        var normalized=new BuildDiagnostics.Diagnostic(source.path().toString(),0,diagnostic.line(),diagnostic.column(),diagnostic.message());
+        var temporary=new PreviewDiagnostics();temporary.frames.put(normalized,frame);
+        var snapshot=new ImportedDeck.Snapshot(entry,List.of(),Map.of(source.path(),source.text()),Set.of(source.path()),List.of());
+        return temporary.locateCurrent(snapshot,normalized);
     }
     /** Match a compiler excerpt to one source line, accounting for generated <p> wrappers.
      * No Source Map is implied: ambiguous/changed excerpts deliberately stay unmapped. */
