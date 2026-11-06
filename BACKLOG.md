@@ -1,5 +1,14 @@
 # Backlog
 
+## 0.1.18: Slidev Inspect
+
+* [x] Standardmäßig ausgeschaltete Inspect-Einstellung für den Preview-Startparameter.
+* [x] Laufende Vorschauen bei Änderung der Einstellung neu starten.
+* [x] Inspect auf demselben Server im externen Browser öffnen, in allen Ansichtsmodi.
+* [x] Inspect-11-/Inspect-12-Voraussetzungen dokumentieren und echte Vite-Plugin-Fixtures prüfen.
+* [ ] Native Settings-/Neustart-/Browserintegration in IntelliJ prüfen.
+* [ ] Optionale separate Inspect-Buildberichte mit aufbewahrtem Ausgabeziel.
+
 ## 0.1.17: Fehlerdiagnose der laufenden Preview
 
 * [x] Vite-Servermeldungen während der Vorschau inkrementell erkennen und begrenzen.

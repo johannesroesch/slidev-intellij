@@ -1,4 +1,4 @@
-# Slidev for IntelliJ, Prototyp 0.1.17
+# Slidev for IntelliJ, Prototyp 0.1.18
 
 Dieses Projekt ergänzt IntelliJ um einen Slidev-Editor mit Folienübersicht, einer echten Slidev-Vorschau und einem Präsentationsfenster.
 
@@ -105,6 +105,26 @@ Die drei Symbolbuttons oben rechts wechseln zwischen:
 * **Preview:** ausschließlich Vorschau.
 
 Die Buttons besitzen Tooltips und zugängliche Namen. Die Umschaltung bleibt in allen Ansichten erreichbar. Editor und Browser werden dabei weiterverwendet; es gibt keinen Neustart und kein Neuladen. Ab Version 0.1.10 behalten beide Bereiche beim Moduswechsel denselben Swing-Elterncontainer. Die erste Split-Ansicht reserviert explizit etwa die Hälfte des Platzes für die Vorschau, unabhängig von den bevorzugten Größen des Texteditors und Browsers. Die Split-Breite bleibt während der geöffneten Sitzung erhalten. Die Vorschau läuft auch im Code-Modus weiter. **Check build**, **Show Slidev log**, **Restart preview** und **Entry source** stehen unabhängig vom Ansichtsmodus oben links zur Verfügung.
+
+## Slidev Inspect ab 0.1.18
+
+Unter **Settings > Slidev > Enable Slidev inspect (preview)** wird der Startparameter `--inspect` für die Vorschau aktiviert. Standardmäßig ist die Option ausgeschaltet und im Projekt-Workspace gespeichert. Änderungen starten bereits laufende Vorschauen nach dem Schließen des Einstellungsdialogs neu. Das Sitzungslog bleibt erhalten; Folie und Klickschritt können beim Neustart zurückgesetzt werden.
+
+Bei aktivierter Option erscheint **Open Inspect** in der Toolbar. Sobald der Server bereit ist, öffnet die Aktion dessen `/__inspect/`-Oberfläche im normalen Browser. Sie steht in Code/Split/Preview zur Verfügung und verwendet denselben Server wie die Präsentation. Die eingebettete Vorschau bleibt auf ihrer Präsentationsseite. Bei einem Serverabbruch ist die Aktion deaktiviert, bis die Vorschau wieder gestartet wurde. Das Plugin installiert keine weiteren npm-Pakete und ändert keine Vite-Konfiguration.
+
+Inspect zeigt die Verarbeitungsschritte der Vite-Plugins, erzeugten Modulcode und Transformationsinformationen. So lassen sich etwa die Umwandlung von Markdown zu Vue und nachfolgende Plugin-Schritte untersuchen. Die Oberfläche ersetzt weder die Preview-Fehlerliste noch eine vollständige Build-Prüfung. Es werden nur die vom laufenden Server tatsächlich verarbeiteten Module sichtbar. `Check build` behält seinen bisherigen Prüfablauf; diese Einstellung gilt für die laufende Preview. Slidevs Inspect-Plugin kann dabei zusätzlich `.vite-inspect`-Dateien im Präsentationsprojekt erzeugen, unter anderem beim Beenden des Servers. Dieses Standardverhalten stammt von Slidev; vorhandene generierte Reports an diesem Ziel können ersetzt werden. Ein abweichendes Ziel lässt sich über `slidev.inspect.outputDir` in der eigenen Vite-Konfiguration setzen.
+
+**Versionsabhängige Voraussetzung:** Slidev 52.14.1 verwendet Inspect 11 mit eigenständiger Oberfläche. Slidev 52.20.1 verwendet Inspect 12, dessen Oberfläche zusätzlich Vite DevTools benötigt. Dafür muss im Präsentationsprojekt eine kompatible Version von `@vitejs/devtools` installiert und in der vorhandenen `vite.config.ts` die Option `devtools: true` gesetzt sein. Bereits vorhandene Einstellungen beibehalten, zum Beispiel:
+
+```ts
+import { defineConfig } from 'vite'
+
+export default defineConfig({
+  devtools: true,
+})
+```
+
+Vite DevTools kann eine Freigabe im Browser verlangen. Den dabei benötigten Code beziehungsweise die Servermeldungen über **Show Slidev log** ansehen; die Authentifizierung wird vom Plugin nicht abgeschaltet. Inspect 12 leitet `/__inspect/` auf seine Client-Oberfläche weiter. Bei eigener Inspect-Base-URL muss die Adresse im Browser entsprechend angepasst werden. Die getesteten Kombinationen sind Inspect 11.4.1 mit Vite 7.3.1 und Inspect 12.0.2 mit Vite 8.3.3 / DevTools 0.7.2. Native Settings-, Browser- und Neustartintegration stehen noch als IntelliJ-Laufzeittest aus.
 
 ## Fehler der laufenden Preview ab 0.1.17
 

@@ -26,7 +26,7 @@ final class SlidevServer implements AutoCloseable {
     private final Consumer<String> log;
     SlidevServer(Consumer<String> log) { this.log=log; }
 
-    void start(Path entry, String node, Consumer<String> ready, Consumer<String> failed) {
+    void start(Path entry, String node, boolean inspect, Consumer<String> ready, Consumer<String> failed) {
         ApplicationManager.getApplication().executeOnPooledThread(() -> {
             try {
                 Path cli=null, root=null;
@@ -38,7 +38,10 @@ final class SlidevServer implements AutoCloseable {
                 int port;
                 try(ServerSocket socket=new ServerSocket(0,0,InetAddress.getLoopbackAddress())) { port=socket.getLocalPort(); }
                 if(cancelled.get()) return;
-                Process child=new ProcessBuilder(node,cli.toString(),entry.toString(),"--port",Integer.toString(port))
+                var command=new java.util.ArrayList<>(java.util.List.of(node,cli.toString(),entry.toString(),"--port",Integer.toString(port)));
+                if(inspect)command.add("--inspect");
+                log.accept("[Slidev] Inspect "+(inspect?"enabled":"disabled"));
+                Process child=new ProcessBuilder(command)
                     .directory(root.toFile()).redirectErrorStream(true).start();
                 process=child;
                 if(cancelled.get()) { terminate(child);return; }

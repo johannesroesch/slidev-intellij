@@ -69,6 +69,8 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
     private final JScrollPane debugConsole=new JScrollPane(log);
     private final JComboBox<ImportedDeck.Slide> outline=new JComboBox<>();
     private boolean syncNavigation;
+    private boolean inspectEnabled,runningInspect;
+    private final JButton openInspect=new JButton("Open Inspect");
     private final JButton checkBuild=new JButton("Check build");
     private final JLabel buildStatus=new JLabel("Build not checked");
     private final DefaultListModel<BuildIssue> issues=new DefaultListModel<>();
@@ -113,8 +115,9 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
         sourceHost.add(delegate.getComponent(),BorderLayout.CENTER);
         syncNavigation=SlidevSettings.get(project).getState().syncNavigation;
         debugConsole.setVisible(SlidevSettings.get(project).getState().showDebugConsole);
+        inspectEnabled=SlidevSettings.get(project).getState().enableInspect;openInspect.setEnabled(false);
         project.getMessageBus().connect(this).subscribe(SlidevSettings.TOPIC,
-            (debug,sync) -> onEdt(() -> applyEditorOptions(debug,sync)));
+            (debug,sync,inspect) -> onEdt(() -> applyEditorOptions(debug,sync,inspect)));
         sourceComponent=sourceHost;previewComponent=previewPanel();
         viewHost=new SlidevView(sourceComponent,previewComponent);
         panel.add(viewHost,BorderLayout.CENTER);
@@ -188,6 +191,12 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
         JPanel actions=new JPanel(new FlowLayout(FlowLayout.LEFT,4,2));actions.add(checkBuild);
         JButton showLog=new JButton("Show Slidev log");showLog.addActionListener(event -> showLog());actions.add(showLog);
         JButton restart=new JButton("Restart preview");restart.addActionListener(event -> onEdt(this::restartPreview));actions.add(restart);
+        openInspect.setVisible(inspectEnabled);
+        openInspect.setToolTipText("Open Vite's Inspect UI in your browser. Inspect v12 needs devtools: true and @vitejs/devtools in the project.");
+        openInspect.addActionListener(event -> {
+            if(!runningInspect || baseUrl==null || server==null || !server.isAlive())return;
+            com.intellij.ide.BrowserUtil.browse(baseUrl+"__inspect/");
+        });actions.add(openInspect);
         JButton entry=new JButton("Entry source");entry.setToolTipText("Show the presentation entry file");entry.addActionListener(event -> onEdt(() -> {
             applyingPreview=true;try{showSource(Path.of(entryFile.getPath()),0,true);}finally{applyingPreview=false;}
         }));actions.add(entry);
@@ -230,7 +239,8 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
         if(mode==viewMode) return;
         viewMode=mode;viewHost.setMode(SlidevView.Mode.valueOf(mode.name()));
     }
-    private void applyEditorOptions(boolean debug, boolean sync) {
+    private void applyEditorOptions(boolean debug, boolean sync, boolean inspect) {
+        boolean inspectChanged=inspectEnabled!=inspect;inspectEnabled=inspect;openInspect.setVisible(inspect);
         debugConsole.setVisible(debug);
         boolean changed=syncNavigation!=sync;
         syncNavigation=sync;
@@ -240,7 +250,8 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
         }
         panel.revalidate();panel.repaint();
         if(!SlidevSettings.get(project).getState().nodeExecutable.equals(deckNode))refreshDeck(null);
-        if(server==null) startVisiblePreview();
+        if(inspectChanged && server!=null)restartPreview();
+        else if(server==null) startVisiblePreview();
     }
     private JComponent previewPanel() {
         JPanel preview=new JPanel(new BorderLayout(6,6));
@@ -492,11 +503,12 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
                 if(diagnostics.accept(line))refreshPreviewIssues();
             });
         });
-        server=session;
-        session.start(Path.of(entryFile.getPath()),SlidevSettings.get(project).getState().nodeExecutable,
+        server=session;runningInspect=inspectEnabled;
+        session.start(Path.of(entryFile.getPath()),SlidevSettings.get(project).getState().nodeExecutable,runningInspect,
             url -> onEdt(() -> {
                 if(server!=session) return;
-                baseUrl=url;
+                baseUrl=url;openInspect.setEnabled(runningInspect);
+                if(runningInspect)log.append("[Inspect] Open "+url+"__inspect/ (Inspect v12 requires Vite DevTools).\n");
                 int number=deck!=null && deck.reliable()?deck.at(Path.of(currentSource.getPath()),getEditor().getCaretModel().getOffset(),previewSlide).map(ImportedDeck.Slide::number).orElse(1):1;
                 requestedSlide=number;navigationRequest++;
                 status.setText("Slidev server ready. Loading preview…");
@@ -519,7 +531,7 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
         if(navigationQuery!=null) { navigationQuery.dispose();navigationQuery=null; }
         if(escapeQuery!=null) { escapeQuery.dispose();escapeQuery=null; }
         if(browser!=null) { browser.dispose();browser=null; }
-        baseUrl=null;
+        baseUrl=null;runningInspect=false;openInspect.setEnabled(false);
         browserHost.removeAll();browserHost.add(new JLabel("Preview stopped",SwingConstants.CENTER));browserHost.revalidate();browserHost.repaint();
         status.setText("Preview stopped");
     }

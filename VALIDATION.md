@@ -581,3 +581,55 @@ Target-machine acceptance:
 Optional real-server checks (requires separately installed fixture dependencies):
   node scripts/test-preview-diagnostics.cjs /path/to/vite-project /tmp/vite-errors.log
   java -ea -cp <test-runtime-classpath> dev.slidev.intellij.core.PreviewDiagnosticsTest /tmp/vite-errors.log
+
+## 0.1.18: Optional Slidev inspect
+
+* Added a persisted Enable Slidev inspect (preview) setting, false by default.
+  Settings events include the option and restart existing preview sessions when
+  it changes, using the existing non-modal restart path and keeping session logs.
+* SlidevServer adds --inspect as a distinct ProcessBuilder argument only when
+  enabled. No shell command interpolation, package installation or configuration
+  mutation is added. The explicit Check build workflow is unchanged.
+* Open Inspect is visible only while the option is enabled and becomes enabled
+  after the corresponding server reports readiness. It opens that server's
+  /__inspect/ route via IntelliJ BrowserUtil in the external browser, preserving
+  the embedded presentation view. Server shutdown disables the action.
+* Reviewed shipped CLI 52.14.1 / 52.20.1 packages: both expose --inspect and use
+  vite-plugin-inspect; dependencies are ^11.3.3 and ^12.0.2 respectively.
+  The latter requires Vite DevTools. UI hints and README document the required
+  project dependency/configuration and preserve the upstream authentication gate.
+
+Executed:
+* PASS: scripts/test-inspect.cjs with actual vite-plugin-inspect 11.4.1 / Vite 7.3.1:
+  module transform and HTTP 200 inspector HTML at /__inspect/, distinct from the
+  presentation fallback page.
+* PASS: same fixture with actual inspect 12.0.2 / Vite 8.3.3 / @vitejs/devtools 0.7.2
+  and devtools:true: /__inspect/ redirects to the inspect client; inspector HTML
+  and the DevTools connection-metadata endpoint are served. Inspect fixtures use a
+  temporary outputDir: with build:true (as used by Slidev), server close may also
+  write report assets. The README documents upstream .vite-inspect output. Authentication is not
+  disabled. This validates endpoint contracts, not interactive browser pairing.
+* BLOCKED: bash gradlew check buildPlugin still fails while downloading Gradle
+  with java.net.SocketException: Network is unreachable. JDK 25 / IntelliJ SDK
+  compilation, Plugin Verifier and native Settings/BrowserUtil runtime NOT RUN.
+  The fixtures use real Vite/Inspect plugins, not a full Slidev IDE integration.
+
+Manual acceptance:
+1. Build/install with JDK 25. Open a deck. Inspect defaults to off, no Open Inspect
+   button is shown and the CLI command does not include --inspect.
+2. Enable the checkbox under Settings > Slidev and close settings. Verify a running
+   preview restarts once and preserves its earlier log. Open Inspect is disabled
+   while starting, then opens the same port's /__inspect/ in the external browser.
+3. Check Code/Split/Preview, a hidden running tab, session failure and manual restart.
+   The embedded presentation must not navigate to the inspector. Stop/close cleanup
+   disables the action, and a restarted session follows the current setting.
+4. With Inspect 12, install a compatible @vitejs/devtools and set devtools:true in
+   the project's existing Vite config. Complete any upstream browser pairing using
+   Show Slidev log. No authentication bypass is introduced by the plugin.
+5. Disable the checkbox: a running session restarts without --inspect and the action
+   disappears. Reopen the project to verify persisted state. Check that ordinary
+   Check build does not generate a new inspect report merely from this setting.
+
+Optional fixture commands:
+  node scripts/test-inspect.cjs /path/to/vite7-inspect11-project
+  node scripts/test-inspect.cjs /path/to/vite8-inspect12-devtools-project devtools
