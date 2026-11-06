@@ -28,7 +28,7 @@ dependencies {
 java { toolchain { languageVersion = JavaLanguageVersion.of(25) } }
 intellijPlatform {
     pluginConfiguration {
-        name = "Slidev for IntelliJ"
+        name = "Slidev"
         ideaVersion { sinceBuild = "262"; untilBuild = "263.*" }
     }
     pluginVerification {

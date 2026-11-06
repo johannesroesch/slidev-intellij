@@ -674,3 +674,14 @@ Executed locally:
 
 The CI workflow and its concrete run results must be inspected separately. Native
 IntelliJ/JCEF acceptance cases from 0.1.16-0.1.18 remain open even if CI passes.
+
+CI run 42187798334 on commit 957e0c931959636b7e21ed1973939e3b086f0de7:
+* PASS: actual JDK 25 SDK compilation, check and buildPlugin for IntelliJ 2026.2.3
+  and 263.7307.112. Both jobs include all core tests and real Slidev fixtures.
+* FAILED before compatibility analysis: Plugin Verifier rejects the word intellij
+  in dev.slidev.intellij and IntelliJ in Slidev for IntelliJ. Scheduled API
+  verifications: zero. This was a descriptor validation failure, not API proof.
+* Fixed descriptor/Gradle display name to Slidev and plugin ID to dev.slidev.editor,
+  without muting the verifier findings. README documents removal of the previous
+  plugin before installing this new identity and the remaining workspace migration
+  acceptance test. Compatibility verification must be rerun on this corrected ZIP.

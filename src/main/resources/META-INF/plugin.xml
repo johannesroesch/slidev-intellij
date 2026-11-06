@@ -1,7 +1,7 @@
 <idea-plugin>
-    <id>dev.slidev.intellij</id>
-    <name>Slidev for IntelliJ</name>
-    <vendor>Slidev IntelliJ Project</vendor>
+    <id>dev.slidev.editor</id>
+    <name>Slidev</name>
+    <vendor>Slidev Editor Project</vendor>
     <description><![CDATA[Slidev Markdown recognition, slide outline, real Slidev preview and a presentation window. Prototype, local desktop IDE only.]]></description>
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.modules.jcef</depends>

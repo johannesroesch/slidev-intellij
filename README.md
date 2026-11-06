@@ -19,6 +19,12 @@ Der Quellcode im Repository ist **kein installierbares IntelliJ-Plugin**. Erst `
 
 Der deklarierte Kompatibilitätsbereich umfasst Build 262 bis 263.*. Die Standard-Build-Basis bleibt IntelliJ IDEA 2026.2.3, damit das Plugin keine neueren APIs voraussetzt. Als zusätzliches Prüfziel ist der 2026.3-RC mit Build 263.7307.112 hinterlegt. Der vollständige Build, Plugin Verifier und ein Laufzeittest auf 2026.3 stehen noch aus. Ältere separate Community-Versionen, Remote Development, WSL und JetBrains Gateway sind noch kein unterstütztes Testziel.
 
+## Wechsel von einer älteren Plugin-Version auf 0.1.19
+
+Der Plugin Verifier lehnt `IntelliJ` als Wort im Plugin-Namen und in der Plugin-ID ab. Ab 0.1.19 heißt das Plugin deshalb **Slidev** und verwendet die ID `dev.slidev.editor` anstelle von `dev.slidev.intellij`.
+
+Vor dem Installieren der neuen ZIP die bisherige Version **Slidev for IntelliJ** unter **Settings > Plugins** entfernen und den erforderlichen IDE-Neustart durchführen. Danach die neue ZIP über **Install Plugin from Disk** installieren. Wegen der geänderten ID behandelt IntelliJ sie als eigenes Plugin. Beide Versionen dürfen nicht gleichzeitig aktiviert sein, da sie dieselben Editoren und Erweiterungen registrieren. Die Paketnamen und das Format der Projekteinstellungen bleiben gleich; die Übernahme bestehender Workspace-Einstellungen ist noch nativ zu prüfen.
+
 ## Automatische Validierung ab 0.1.19
 
 Der Workflow [Validate plugin](https://github.com/johannesroesch/slidev-intellij/actions/workflows/validate.yml) ist für Pushes auf `main`, Pull Requests und manuelle Starts eingerichtet. Er baut mit JDK 25 gegen die konfigurierte IntelliJ-2026.2-Basis und das hinterlegte 2026.3-Prüfziel. `check buildPlugin` sowie Plugin Verifier laufen ohne Veröffentlichung in einem Plugin-Marktplatz. Plugin-ZIPs und Prüfberichte werden als Workflow-Artefakte bereitgestellt, soweit sie erzeugt wurden. Ein eingerichteter Workflow bedeutet noch keinen erfolgreichen Build; dafür den konkreten Lauf und seine Ergebnisse prüfen.
