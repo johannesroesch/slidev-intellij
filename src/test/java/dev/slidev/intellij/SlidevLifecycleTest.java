@@ -10,7 +10,10 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase;
 public final class SlidevLifecycleTest extends BasePlatformTestCase {
     public void testAllRegisteredExtensionPointsSupportDynamicUnloading() {
         for(String name:new String[]{"annotator","externalAnnotator","gotoDeclarationHandler","completion.contributor","fileEditorProvider","projectConfigurable"}) {
-            var point=com.intellij.openapi.application.ApplicationManager.getApplication().getExtensionArea().getExtensionPoint("com.intellij."+name);
+            String qualified="com.intellij."+name;
+            var applicationArea=com.intellij.openapi.application.ApplicationManager.getApplication().getExtensionArea();
+            var area=applicationArea.hasExtensionPoint(qualified)?applicationArea:getProject().getExtensionArea();
+            var point=area.getExtensionPoint(qualified);
             assertTrue("Non-dynamic extension point: "+name,point.isDynamic());
         }
     }

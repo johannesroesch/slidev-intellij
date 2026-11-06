@@ -43,15 +43,16 @@ public final class SlidevPluginListener implements DynamicPluginListener {
             String saved=properties.getValue(RESTORE);
             properties.unsetValue(RESTORE);
             if(saved==null || saved.isBlank())continue;
+            var runtime=SlidevRuntime.get(project);
             // New-version code only. Wait until the platform finishes registering extensions.
             ApplicationManager.getApplication().invokeLater(() -> {
-                if(project.isDisposed())return;
+                if(project.isDisposed() || runtime.isClosing())return;
                 var manager=FileEditorManager.getInstance(project);
                 for(String url:saved.split("\n")) {
                     var file=VirtualFileManager.getInstance().findFileByUrl(url);
                     if(file!=null && file.isValid())manager.openFile(file,false);
                 }
-            },ModalityState.nonModal(),ignored -> project.isDisposed());
+            },ModalityState.nonModal(),ignored -> project.isDisposed() || runtime.isClosing());
         }
     }
 }
