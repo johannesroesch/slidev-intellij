@@ -685,3 +685,24 @@ CI run 42187798334 on commit 957e0c931959636b7e21ed1973939e3b086f0de7:
   without muting the verifier findings. README documents removal of the previous
   plugin before installing this new identity and the remaining workspace migration
   acceptance test. Compatibility verification must be rerun on this corrected ZIP.
+
+Corrected CI run 42189051108 on code commit
+663f09fc8e935ce5e39a00a195f3b5179e768d0c:
+https://github.com/johannesroesch/slidev-intellij/actions/runs/42189051108
+* PASS: check/buildPlugin for IntelliJ 2026.2.3 and 263.7307.112 with JDK 25.
+* PASS: all core/Swing/real-process tasks in both jobs; full Slidev fixtures use
+  52.14.1 with the baseline and 52.20.1 with the 263 build.
+* PASS: verifyPlugin scheduled and completed both actual API verifications:
+  IU-262.10968.63: Compatible, 3 deprecated API usages, 4 experimental usages.
+  IU-263.7307.112: Compatible, 4 deprecated API usages, 4 experimental usages.
+  Experimental usages include WriteIntentReadAction. These warnings were not
+  muted and remain maintenance work for future IDE versions.
+* Artifacts contain installable 0.1.19 ZIPs and reports. The baseline artifact
+  slidev-intellij-2026.2.3 includes both verification reports. Extract the inner
+  distributions/slidev-intellij-0.1.19.zip before installing.
+* NOT RUN: visible IntelliJ/JCEF acceptance (focus, live highlights, modeless log
+  window, Inspect browser opening and workspace migration from the previous ID).
+  Headless Swing, subprocess tests and Verifier do not establish these behaviors.
+
+The following documentation-only commit records these results without changing
+the verified production/test/workflow code or rebuilding the same artifact.

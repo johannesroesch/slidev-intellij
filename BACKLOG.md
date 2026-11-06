@@ -8,7 +8,9 @@
 * [x] Vollständiges Slidev-Projekt mit importierter Folie, Syntaxfehler und Korrektur im selben Server testen.
 * [x] Eindeutige Compiler-Ausschnitte für verschobene Zeilen und HTML-Wrapper verwenden.
 * [x] GitHub-Workflow für SDK-Builds beider Zielplattformen und Plugin Verifier einrichten.
-* [ ] Erfolgreiche Workflow-Ergebnisse bestätigen; sichtbaren IntelliJ-/JCEF-Akzeptanztest durchführen.
+* [x] SDK-Builds beider Ziele und Verifier-Ergebnis Compatible im CI bestätigen.
+* [ ] Sichtbaren IntelliJ-/JCEF-Akzeptanztest einschließlich neuer Plugin-ID durchführen.
+* [ ] Veraltete/experimentelle APIs aus dem Verifier-Bericht für kommende IDE-Versionen ablösen.
 * [ ] Transform-Source-Maps für Fälle ohne eindeutigen Compiler-Ausschnitt.
 
 ## 0.1.18: Slidev Inspect
@@ -86,13 +88,13 @@
 * [x] Deklarierten Kompatibilitätsbereich auf 262 bis 263.* erweitern.
 * [x] JCEF-Plugin als explizite Build-Abhängigkeit ergänzen.
 * [x] Verifier für Build-Basis und 2026.3-RC konfigurieren; Zielversionen überschreibbar.
-* [ ] Vollständigen Build und Plugin Verifier gegen 2026.3 ausführen.
+* [x] Vollständigen Build und Plugin Verifier gegen 2026.3 ausführen.
 * [ ] Erkennung, Vorschau, Live-Updates, Navigation und Vollbild auf 2026.3 testen.
 
 ## 0.1: Prototyp praktisch validieren
 
-* [ ] Vollständiger Build mit JDK 25 und IntelliJ 2026.2.3.
-* [ ] IntelliJ Plugin Verifier ausführen und API-Abhängigkeiten prüfen.
+* [x] Vollständiger Build mit JDK 25 und IntelliJ 2026.2.3.
+* [x] IntelliJ Plugin Verifier ausführen und API-Abhängigkeiten prüfen.
 * [ ] Ohne Ultimate-Lizenz testen.
 * [ ] Vorschau und rahmenloses Präsentationsfenster auf macOS testen.
 * [ ] Erhaltung von Folie und Klickschritt beim Fensterwechsel bestätigen.
