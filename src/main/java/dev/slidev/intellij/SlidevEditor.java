@@ -543,7 +543,7 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
                 snapshot=SlidevDeckSupport.load(entry,overrides,node,() -> {
                     ProgressManager.checkCanceled();if(Thread.currentThread().isInterrupted() || disposed || project.isDisposed())throw new java.util.concurrent.CancellationException();
                 });
-            } catch(com.intellij.openapi.progress.ProcessCanceledException | java.util.concurrent.CancellationException canceled){return;}
+            } catch(java.util.concurrent.CancellationException canceled){return;}
             catch(RuntimeException ex){onEdt(() -> {if(request!=deckRequest)return;deckLoading=false;deckTask=null;deckStatus.setText("Deck mapping unavailable");log.append("[Deck] "+ex+"\n");if(restartPending){restartPending=false;startPreview(project);}});return;}
             onEdt(() -> {
                 if(request!=deckRequest || revision!=editRevision)return;
