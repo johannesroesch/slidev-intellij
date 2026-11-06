@@ -767,3 +767,18 @@ Manual IDE acceptance:
 6. Verify ambiguous/generated errors, unavailable compilers, read-only theme
    files, rapid changes, Node settings changes and project/editor disposal. File
    navigation must remain useful without a guessed offset or stale highlight.
+
+CI confirmation for 0.1.20:
+https://github.com/johannesroesch/slidev-intellij/actions/runs/42196470297
+Verified code commit: 504b389a1b9871faa485217ff6715609e63f98e8.
+* PASS: check/buildPlugin with JDK 25 on IntelliJ 2026.2.3 and 263.7307.112.
+* PASS: 49 Vue checks in each matrix job, with actual CLI 52.14.1 / 52.20.1, plus
+  all existing parser, metadata, completion, references, preview and Swing suites.
+* PASS: both actual Plugin Verifier analyses completed:
+  IU-262.10968.63: Compatible, 3 deprecated and 4 experimental API usages.
+  IU-263.7307.112: Compatible, 6 deprecated and 4 experimental API usages.
+* NOT RUN: interactive native editor navigation/highlights/focus and JCEF UI.
+  SDK compilation, headless checks and Verifier do not replace those tests.
+
+The documentation-only follow-up records the successful run without changing the
+verified production/test/workflow code.

@@ -8,7 +8,8 @@
 * [x] Vue-Dokument-/Dateiänderungen und native Editor-Lebenszyklen berücksichtigen.
 * [x] Begrenzte Hintergrundanalyse und Abbruch veralteter Ergebnisse.
 * [x] 25 reine und 24 zusätzliche echte Slidev-/Vue-Prüfungen je getesteter Version.
-* [ ] SDK-Build/Verifier des aktuellen Stands bestätigen und nativen IDE-Akzeptanztest durchführen.
+* [x] SDK-Builds und Verifier-Ergebnis Compatible für beide Zielplattformen bestätigen.
+* [ ] Nativen IDE-Akzeptanztest für Vue-Sprünge, Fokus, Markierungen und Dateiänderungen durchführen.
 * [ ] Strukturierte Transform-/Source-Map-Diagnosen für Fälle ohne eindeutige Originalfehlermeldung.
 
 ## 0.1.19: Prozess- und Integrationsvalidierung
