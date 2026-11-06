@@ -116,6 +116,9 @@ tasks.register<JavaExec>("taskScopeTest") {
 tasks.check { dependsOn("taskScopeTest") }
 tasks.check { dependsOn("coreTest", "viewTest", "syntaxTest", "completionTest", "expressionTest", "referencesTest", "combinedFeaturesTest", "previewDiagnosticsTest", "previewServerTest", "vueDiagnosticsTest") }
 tasks.test {
+    // Load this plugin and its actual dependencies, avoiding unrelated bundled product plugins.
+    systemProperty("idea.load.plugins.id", "com.intellij,dev.slidev.editor,org.intellij.plugins.markdown,org.jetbrains.plugins.yaml,com.intellij.modules.jcef")
+    testLogging { exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL }
     include("**/SlidevLifecycleTest.class")
     dependsOn("taskScopeTest")
     // CoreTest is a standalone main-based harness, not a JUnit test class.
