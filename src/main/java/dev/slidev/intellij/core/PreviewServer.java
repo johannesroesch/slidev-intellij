@@ -120,7 +120,6 @@ public class PreviewServer implements AutoCloseable {
         if(!cancelled.compareAndSet(false,true))return;
         Process child=process;
         if(child!=null) {
-            child.descendants().forEach(ProcessHandle::destroy);child.destroy();
             try { executor.execute(() -> terminate(child)); }
             catch(java.util.concurrent.RejectedExecutionException ex) { child.descendants().forEach(ProcessHandle::destroyForcibly);child.destroyForcibly(); }
         }

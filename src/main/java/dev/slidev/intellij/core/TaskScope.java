@@ -23,10 +23,11 @@ public final class TaskScope implements Executor, AutoCloseable {
         catch(RejectedExecutionException ex) { task.cancel(false);throw ex; }
         return task;
     }
-    @Override public void execute(Runnable action) { submit(action); }
+    /** Session/cleanup operations drain after their owner has signalled cancellation. */
+    @Override public synchronized void execute(Runnable action) { workers.execute(action); }
     @Override public synchronized void close() {
         tasks.forEach(task -> task.cancel(true));
-        workers.shutdownNow();
+        workers.shutdown();
     }
     /** For off-EDT tests only. Never wait for IDE read actions while unloading on the EDT. */
     public boolean awaitTermination(long timeout,TimeUnit unit)throws InterruptedException {

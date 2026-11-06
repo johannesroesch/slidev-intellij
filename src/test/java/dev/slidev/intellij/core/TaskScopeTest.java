@@ -21,7 +21,10 @@ public final class TaskScopeTest {
                 finally {exited.countDown();}
             });
             check(started.await(5,TimeUnit.SECONDS),"Work started");
+            var cleaned=new CountDownLatch(1);
+            scope.execute(cleaned::countDown);
             scope.close();scope.close();
+            check(cleaned.await(5,TimeUnit.SECONDS),"Already scheduled cleanup is drained on unload");
             check(exited.await(5,TimeUnit.SECONDS) && interrupted.get(),"Unload interrupts running work");
             check(work.isCancelled(),"Running Future is cancelled");
             check(scope.awaitTermination(5,TimeUnit.SECONDS),"No worker remains after unload");

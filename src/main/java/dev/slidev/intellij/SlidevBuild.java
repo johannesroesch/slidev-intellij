@@ -72,8 +72,7 @@ final class SlidevBuild implements AutoCloseable {
         cancelled.set(true);
         Process child=process;
         if(child!=null) {
-            child.descendants().forEach(ProcessHandle::destroy);child.destroy();
-            try { tasks.submit(() -> SlidevServer.terminate(child)); }
+            try { tasks.execute(() -> SlidevServer.terminate(child)); }
             catch(RejectedExecutionException ex) { child.descendants().forEach(ProcessHandle::destroyForcibly);child.destroyForcibly(); }
         }
     }
