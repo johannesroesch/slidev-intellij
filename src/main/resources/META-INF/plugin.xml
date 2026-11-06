@@ -16,8 +16,12 @@
         <completion.contributor language="HTML" implementationClass="dev.slidev.intellij.SlidevCompletionContributor"/>
         <fileEditorProvider implementation="dev.slidev.intellij.SlidevEditorProvider" order="first"/>
         <projectService serviceImplementation="dev.slidev.intellij.SlidevSettings"/>
+        <projectService serviceImplementation="dev.slidev.intellij.SlidevRuntime"/>
         <projectConfigurable id="dev.slidev.intellij.settings" displayName="Slidev" instance="dev.slidev.intellij.SlidevConfigurable"/>
     </extensions>
+    <applicationListeners>
+        <listener class="dev.slidev.intellij.SlidevPluginListener" topic="com.intellij.ide.plugins.DynamicPluginListener"/>
+    </applicationListeners>
     <actions>
         <action id="Slidev.MarkFile" class="dev.slidev.intellij.MarkSlidevAction" text="Treat as Slidev" description="Mark the selected Markdown file as a Slidev presentation and reopen it">
             <add-to-group group-id="EditorPopupMenu" anchor="last"/>

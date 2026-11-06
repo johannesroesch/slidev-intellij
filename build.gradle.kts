@@ -1,11 +1,12 @@
 import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
+import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 
 plugins {
     java
     id("org.jetbrains.intellij.platform") version "2.19.0"
 }
 group = "dev.slidev"
-version = "0.1.20"
+version = "0.1.21"
 // Keep the older API baseline; allow building/running against a specific 263 build.
 val platformVersion = providers.gradleProperty("platformVersion").orElse("2026.2.3")
 val verificationVersion = providers.gradleProperty("verificationVersion").orElse("263.7307.112")
@@ -23,7 +24,9 @@ dependencies {
         // Low-level org.cef API, separate from IntelliJ's JBCef wrappers.
         bundledModule("intellij.libraries.jcef")
         pluginVerifier()
+        testFramework(TestFrameworkType.Platform)
     }
+    testImplementation("junit:junit:4.13.2")
 }
 java { toolchain { languageVersion = JavaLanguageVersion.of(25) } }
 intellijPlatform {
@@ -104,8 +107,17 @@ tasks.register<JavaExec>("vueDiagnosticsTest") {
     }
     enableAssertions = true
 }
+tasks.register<JavaExec>("taskScopeTest") {
+    dependsOn(tasks.testClasses)
+    classpath = sourceSets.test.get().runtimeClasspath
+    mainClass = "dev.slidev.intellij.core.TaskScopeTest"
+    enableAssertions = true
+}
+tasks.check { dependsOn("taskScopeTest") }
 tasks.check { dependsOn("coreTest", "viewTest", "syntaxTest", "completionTest", "expressionTest", "referencesTest", "combinedFeaturesTest", "previewDiagnosticsTest", "previewServerTest", "vueDiagnosticsTest") }
 tasks.test {
+    include("**/SlidevLifecycleTest.class")
+    dependsOn("taskScopeTest")
     // CoreTest is a standalone main-based harness, not a JUnit test class.
     // Keep its checks mandatory even when invoking the test task directly.
     dependsOn("coreTest", "viewTest", "syntaxTest", "completionTest", "expressionTest", "referencesTest", "combinedFeaturesTest", "previewDiagnosticsTest", "previewServerTest", "vueDiagnosticsTest")

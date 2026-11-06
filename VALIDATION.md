@@ -782,3 +782,12 @@ Verified code commit: 504b389a1b9871faa485217ff6715609e63f98e8.
 
 The documentation-only follow-up records the successful run without changing the
 verified production/test/workflow code.
+
+## 0.1.21 dynamic lifecycle (in progress)
+
+Local pure suites pass, including 8 new TaskScope checks. IDE lifecycle tests
+exercise registered extension-point flags and editor disposal/document retention.
+Full SDK compile/tests, real process checks and Verifier will run in CI.
+Local process-tree checks are not accepted as evidence: the managed execution
+PID/proc environment caused a ProcessHandle failure. Use the CI results instead.
+Interactive JCEF unload/reload and actual old-classloader collection are NOT RUN.

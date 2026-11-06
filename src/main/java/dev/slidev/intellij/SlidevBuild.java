@@ -1,6 +1,6 @@
 package dev.slidev.intellij;
 
-import com.intellij.openapi.application.ApplicationManager;
+import dev.slidev.intellij.core.TaskScope;
 import dev.slidev.intellij.core.BuildDiagnostics;
 import dev.slidev.intellij.core.PreviewDiagnostics;
 import java.io.*;
@@ -16,8 +16,10 @@ final class SlidevBuild implements AutoCloseable {
     record Result(boolean success, String message, List<BuildDiagnostics.Diagnostic> diagnostics, PreviewDiagnostics details) {}
     private final AtomicBoolean cancelled=new AtomicBoolean();
     private volatile Process process;
+    private final TaskScope tasks;
+    SlidevBuild(TaskScope tasks) { this.tasks=tasks; }
     void start(Path entry, String node, Consumer<String> log, Consumer<Result> complete) {
-        ApplicationManager.getApplication().executeOnPooledThread(() -> {
+        tasks.submit(() -> {
             Path output=null;
             try {
                 Path cli=null, root=null;
@@ -32,7 +34,7 @@ final class SlidevBuild implements AutoCloseable {
                     .directory(root.toFile()).redirectErrorStream(true).start();
                 process=child;
                 if(cancelled.get()) { SlidevServer.terminate(child);return; }
-                Future<String> captured=ApplicationManager.getApplication().executeOnPooledThread(() -> {
+                Future<String> captured=tasks.submit(() -> {
                     StringBuilder text=new StringBuilder();
                     try(BufferedReader reader=new BufferedReader(new InputStreamReader(child.getInputStream(),StandardCharsets.UTF_8))) {
                         String line;
@@ -69,6 +71,10 @@ final class SlidevBuild implements AutoCloseable {
     @Override public void close() {
         cancelled.set(true);
         Process child=process;
-        if(child!=null) ApplicationManager.getApplication().executeOnPooledThread(() -> SlidevServer.terminate(child));
+        if(child!=null) {
+            child.descendants().forEach(ProcessHandle::destroy);child.destroy();
+            try { tasks.submit(() -> SlidevServer.terminate(child)); }
+            catch(RejectedExecutionException ex) { child.descendants().forEach(ProcessHandle::destroyForcibly);child.destroyForcibly(); }
+        }
     }
 }

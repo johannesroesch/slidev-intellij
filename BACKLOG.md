@@ -1,5 +1,14 @@
 # Backlog
 
+## 0.1.21: Dynamischer Plugin-Lebenszyklus
+
+* [x] Projektgebundene Hintergrundaufgaben und Abbruch beim Entladen.
+* [x] Eigene Editorinstanzen vor dem Entladen schließen und bei Updates Dateien erneut öffnen.
+* [x] Verspätete UI-Callbacks nach Editor-/Pluginende verwerfen.
+* [x] Worker ohne geerbten Plugin-Classloader und Thread-Locals erstellen.
+* [ ] SDK-Lebenszyklustests und beide CI-Ziele bestätigen.
+* [ ] Sichtbaren Updatezyklus mit aktivem JCEF einschließlich tatsächlichem Classloader-Unload testen.
+
 ## 0.1.20: Vue-Fehlernavigation
 
 * [x] Lokale Vue-Komponenten-, Layout- und Theme-Dateien aus Preview-/Build-Meldungen öffnen.

@@ -76,6 +76,17 @@ public final class PreviewServerTest {
             Path absent=Files.createTempDirectory("slidev-absent-");
             try {var dependency=new Session(executor,new CopyOnWriteArrayList<>());sessions.add(dependency);dependency.start(absent.resolve("slides.md"),node,false);dependency.awaitFailure();check(dependency.failure.get().contains("Local @slidev/cli missing"),"Missing dependency is actionable");}
             finally{Files.deleteIfExists(absent);}
+            try(var scope=new TaskScope()) {
+                Files.writeString(entry,"child");
+                var unloading=new Session(scope,new CopyOnWriteArrayList<>());sessions.add(unloading);
+                unloading.start(entry,node,false);unloading.awaitReady();
+                long unloadingParent=unloading.pid("PID="),unloadingChild=unloading.pid("CHILD=");
+                unloading.close();scope.close();
+                check(scope.awaitTermination(10,TimeUnit.SECONDS),"Plugin unload drains its process workers");
+                until(()->ProcessHandle.of(unloadingParent).map(p->!p.isAlive()).orElse(true),"Unload stops parent process");
+                until(()->ProcessHandle.of(unloadingChild).map(p->!p.isAlive()).orElse(true),"Unload stops descendant process");
+                check(unloading.failures.get()==0,"Unload suppresses failure callback");
+            }
             if(args.length>1)realSlidev(node,Path.of(args[1]),executor,sessions);
             sessions.forEach(Session::close);executor.shutdown();check(executor.awaitTermination(15,TimeUnit.SECONDS),"All worker/read/termination tasks complete");
             check(restarted.failures.get()==0 && cancelled.failures.get()==0 && tree.failures.get()==0 && cancelled.url.get()==null,"Intentional closes never report failure or readiness after cancellation");

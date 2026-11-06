@@ -58,6 +58,7 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
     private final JLabel deckStatus=new JLabel("Resolving deck…");
     private final VirtualFile file;
     private final Project project;
+    private final SlidevRuntime runtime;
     private boolean selected;
     private final JPanel panel=new JPanel(new BorderLayout());
     private enum ViewMode { CODE, SPLIT, PREVIEW }
@@ -123,6 +124,7 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
     private long editRevision;
 
     public SlidevEditor(Project project,VirtualFile file) {
+        this.runtime=SlidevRuntime.get(project);
         this.file=file;this.project=project;this.entryFile=SlidevDeckSupport.entryFor(project,file);this.currentSource=file;
         delegate=(TextEditor)TextEditorProvider.getInstance().createEditor(project,file);
         sourceEditors.put(file.getPath(),delegate);
@@ -231,6 +233,7 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
             finally {applyingPreview=false;}
             requestPreviewSlide(slide.number());
         });
+        runtime.add(this);
         updateStructure();
     }
     private JComponent viewToolbar() {
@@ -412,7 +415,7 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
         ImportedDeck.Snapshot snapshot=deck;long revision=editRevision,componentRevision=vueRevision.get();
         clearBuildIssues();buildStatus.setText("Checking build…");checkBuild.setText("Cancel check");
         log.append("\n[Build check] Starting local Slidev build\n");
-        SlidevBuild session=new SlidevBuild();build=session;
+        SlidevBuild session=new SlidevBuild(runtime.tasks);build=session;
         session.start(Path.of(entryFile.getPath()),SlidevSettings.get(project).getState().nodeExecutable,
             line -> onEdt(() -> {if(build!=session)return;if(log.getDocument().getLength()>100_000)log.setText(log.getText().substring(50_000));log.append("[Build] "+line+"\n");}),
             result -> onEdt(() -> {
@@ -488,7 +491,7 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
             if(document!=null && FileDocumentManager.getInstance().isDocumentUnsaved(document))continue;
             long request=++vueRequest,revision=vueRevision.get();vueRequests.put(path,request);
             String node=SlidevSettings.get(project).getState().nodeExecutable;
-            vueTasks.put(path,ApplicationManager.getApplication().executeOnPooledThread(() -> {
+            vueTasks.put(path,runtime.tasks.submit(() -> {
                 try {
                 var source=DiagnosticSources.read(path);
                 if(source.isPresent())vueDiscoveries.put(path,request);
@@ -518,7 +521,7 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
         var file=LocalFileSystem.getInstance().findFileByPath(issue.path().toString().replace('\\','/'));
         if(file!=null){openVueIssue(issue,file);return;}
         status.setText("Loading source: "+issue.path());
-        ApplicationManager.getApplication().executeOnPooledThread(() -> {
+        runtime.tasks.submit(() -> {
             var found=LocalFileSystem.getInstance().refreshAndFindFileByPath(issue.path().toString().replace('\\','/'));
             onEdt(() -> openVueIssue(issue,found));
         });
@@ -635,7 +638,7 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
             }
         },browser.getCefBrowser());
         browserHost.removeAll();browserHost.add(browser.getComponent(),BorderLayout.CENTER);browserHost.revalidate();browserHost.repaint();
-        SlidevServer session=new SlidevServer(line -> {
+        SlidevServer session=new SlidevServer(runtime.tasks,line -> {
             long generation=previewGeneration.get();
             onEdt(() -> {
                 if(log.getDocument().getLength()>100_000) log.setText(log.getText().substring(50_000));
@@ -732,7 +735,7 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
         Path entry=ImportedDeck.normalize(Path.of(entryFile.getPath()));
         var overrides=SlidevDeckSupport.overrides(project,entry,watchedSources);String node=SlidevSettings.get(project).getState().nodeExecutable;
         deckNode=node;
-        deckTask=ApplicationManager.getApplication().executeOnPooledThread(() -> {
+        deckTask=runtime.tasks.submit(() -> {
             ImportedDeck.Snapshot snapshot;
             try {
                 snapshot=SlidevDeckSupport.load(entry,overrides,node,() -> {
@@ -827,8 +830,8 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
     }
     private void onEdt(Runnable action) {
         ApplicationManager.getApplication().invokeLater(() -> {
-            if(!disposed && !project.isDisposed()) WriteIntentReadAction.run(action);
-        },ModalityState.nonModal());
+            if(!disposed && !runtime.isClosing() && !project.isDisposed()) WriteIntentReadAction.run(action);
+        },ModalityState.nonModal(),ignored -> disposed || runtime.isClosing() || project.isDisposed());
     }
     @Override public boolean canNavigateTo(@NotNull com.intellij.pom.Navigatable target) { return delegate.canNavigateTo(target); }
     @Override public void navigateTo(@NotNull com.intellij.pom.Navigatable target) { delegate.navigateTo(target); }
@@ -853,7 +856,8 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
     @Override public VirtualFile getFile() { return file; }
     @Override public void dispose() {
         if(disposed) return;
-        changeTimer.stop();caretTimer.stop();cancelBuild();previewIssues.clear();clearBuildIssues();stopPreview();disposed=true;
+        disposed=true;runtime.remove(this);
+        changeTimer.stop();caretTimer.stop();cancelBuild();previewIssues.clear();clearBuildIssues();stopPreview();
         deckRequest++;if(deckTask!=null)deckTask.cancel(true);
         vueTasks.values().forEach(task->task.cancel(true));vueTasks.clear();vueRequests.clear();vueDiscoveries.clear();vueSources.clear();vueChecks.clear();vueWatches=java.util.Set.of();
         sourceEditors.values().forEach(Disposer::dispose);sourceEditors.clear();

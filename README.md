@@ -1,4 +1,4 @@
-# Slidev for IntelliJ, Prototyp 0.1.20
+# Slidev for IntelliJ, Prototyp 0.1.21
 
 Dieses Projekt ergänzt IntelliJ um einen Slidev-Editor mit Folienübersicht, einer echten Slidev-Vorschau und einem Präsentationsfenster.
 
@@ -7,6 +7,12 @@ Dieses Projekt ergänzt IntelliJ um einen Slidev-Editor mit Folienübersicht, ei
 Dies ist ein Quellcode-Prototyp. Für Version 0.1.20 sind die SDK-Builds mit JDK 25, `check`, `buildPlugin` und Plugin Verifier auf beiden Zielplattformen bestätigt: [erfolgreicher CI-Lauf](https://github.com/johannesroesch/slidev-intellij/actions/runs/42196470297). Der Verifier bewertet beide Ziele als **Compatible**, mit Hinweisen auf veraltete und experimentelle APIs. Die Vue-Prüfungen bestehen gegen vollständige Slidev-Installationen 52.14.1 und 52.20.1. Ein sichtbarer IntelliJ-/JCEF-Akzeptanztest, einschließlich nativer Vue-Navigation und Markierungen, steht weiterhin aus.
 
 Der Quellcode im Repository ist **kein installierbares IntelliJ-Plugin**. Erst `buildPlugin` erzeugt das installierbare Paket.
+
+## Updates ohne IDE-Neustart
+
+Version 0.1.21 ergänzt die Vorbereitung für dynamische Pluginupdates. Vor dem Entladen werden die Slidev-Tabs geschlossen, Präsentations- und Logfenster sowie JCEF und Listener freigegeben, Preview-/Build-Prozesse beendet und eigene Hintergrundaufgaben abgebrochen. Dokumente werden dabei nicht verworfen. Bei einem Update werden die betroffenen Dateien anschließend erneut geöffnet. Beim Deaktivieren oder Deinstallieren werden sie nicht automatisch wieder geöffnet.
+
+Die alte Version führt das Entladen aus. Beim ersten Wechsel von 0.1.20 oder älter auf 0.1.21 kann deshalb weiterhin ein Neustart erforderlich sein. Erst spätere Updates können die neue Aufräumlogik nutzen. Ein Neustart bleibt außerdem möglich, wenn IntelliJ das Entladen aus anderen Gründen ablehnt. Die genaue Ursache steht im IDE-Log unter `com.intellij.ide.plugins.DynamicPlugins`; unsere Vorbereitung wird zusätzlich als `Slidev unload` protokolliert. Der komplette sichtbare Updatezyklus mit aktivem JCEF muss noch in einer laufenden IDE geprüft werden. Die bisherigen grünen CI-Ergebnisse unten beziehen sich auf 0.1.20, bis ein neuer Lauf bestätigt ist.
 
 ## Zielplattform und Voraussetzungen
 
