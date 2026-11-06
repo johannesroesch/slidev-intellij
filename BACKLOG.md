@@ -1,5 +1,16 @@
 # Backlog
 
+## 0.1.19: Prozess- und Integrationsvalidierung
+
+* [x] Serverprozess aus IDE-Adapter herauslösen und dieselbe Implementierung unabhängig prüfen.
+* [x] Crash-Log vor Fehlercallback vollständig lesen; wiederholtes Beenden behandeln.
+* [x] Reale Unterprozesse, stdout/stderr, Startfehler, Neustart und Kindprozessende prüfen.
+* [x] Vollständiges Slidev-Projekt mit importierter Folie, Syntaxfehler und Korrektur im selben Server testen.
+* [x] Eindeutige Compiler-Ausschnitte für verschobene Zeilen und HTML-Wrapper verwenden.
+* [x] GitHub-Workflow für SDK-Builds beider Zielplattformen und Plugin Verifier einrichten.
+* [ ] Erfolgreiche Workflow-Ergebnisse bestätigen; sichtbaren IntelliJ-/JCEF-Akzeptanztest durchführen.
+* [ ] Transform-Source-Maps für Fälle ohne eindeutigen Compiler-Ausschnitt.
+
 ## 0.1.18: Slidev Inspect
 
 * [x] Standardmäßig ausgeschaltete Inspect-Einstellung für den Preview-Startparameter.

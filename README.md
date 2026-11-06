@@ -1,10 +1,10 @@
-# Slidev for IntelliJ, Prototyp 0.1.18
+# Slidev for IntelliJ, Prototyp 0.1.19
 
 Dieses Projekt ergänzt IntelliJ um einen Slidev-Editor mit Folienübersicht, einer echten Slidev-Vorschau und einem Präsentationsfenster.
 
 ## Status
 
-Dies ist ein Quellcode-Prototyp. 43 Parser-, Diagnose- und Navigationschecks sowie 49 Metadaten- und Schemaprüfungen sowie 68 zusätzliche Completion- und Dateisystemprüfungen bestehen. Zusätzlich bestehen 33 reine Java-Prüfungen für Ausdrucksmaskierung und Protokoll sowie gesonderte Tests gegen den echten Vue-Compiler und den Node-Unterprozess. 113 weitere Prüfungen für Projektbezüge und Navigationsziele bestehen. 24 weitere reine Prüfungen behandeln die laufende Preview-Diagnose, ergänzt durch echte Vite-/Vue-Serverfixtures gegen Vite 7.3.1 und 8.3.3. Hinzu kommen 21 reine Quick-Fix-/Deck-Mapping-Prüfungen sowie sieben zusätzliche Prüfungen mit echtem Node-/Slidev-Parser-Prozess für beide getesteten Slidev-Versionen. Die neue IntelliJ-Integration für YAML, Completion, Live-Ausdrucksprüfung und Dateinavigation ist hier noch nicht durch einen vollständigen Plugin-Build oder IDE-Test validiert. Ein vollständiger Plugin-Build und ein Laufzeittest in IntelliJ waren in der Erstellungsumgebung nicht möglich. Der Gradle-Wrapper konnte seine Distribution wegen des eingeschränkten Netzwerkzugangs des Java-Prozesses nicht herunterladen. Außerdem ist hier nur eine Java-17-Laufzeit vorhanden; die Zielplattform erfordert ein JDK 25.
+Dies ist ein Quellcode-Prototyp. 43 Parser-, Diagnose- und Navigationschecks sowie 49 Metadaten- und Schemaprüfungen sowie 68 zusätzliche Completion- und Dateisystemprüfungen bestehen. Zusätzlich bestehen 33 reine Java-Prüfungen für Ausdrucksmaskierung und Protokoll sowie gesonderte Tests gegen den echten Vue-Compiler und den Node-Unterprozess. 113 weitere Prüfungen für Projektbezüge und Navigationsziele bestehen. 31 weitere reine Prüfungen behandeln die laufende Preview-Diagnose, ergänzt durch echte Vite-/Vue-Serverfixtures gegen Vite 7.3.1 und 8.3.3. Hinzu kommen 21 reine Quick-Fix-/Deck-Mapping-Prüfungen sowie sieben zusätzliche Prüfungen mit echtem Node-/Slidev-Parser-Prozess für beide getesteten Slidev-Versionen. Die neue IntelliJ-Integration für YAML, Completion, Live-Ausdrucksprüfung und Dateinavigation ist hier noch nicht durch einen vollständigen Plugin-Build oder IDE-Test validiert. Ein vollständiger Plugin-Build und ein Laufzeittest in IntelliJ waren in der Erstellungsumgebung nicht möglich. Der Gradle-Wrapper konnte seine Distribution wegen des eingeschränkten Netzwerkzugangs des Java-Prozesses nicht herunterladen. Außerdem ist hier nur eine Java-17-Laufzeit vorhanden; die Zielplattform erfordert ein JDK 25.
 
 Der Quellcode im Repository ist **kein installierbares IntelliJ-Plugin**. Erst `buildPlugin` erzeugt das installierbare Paket.
 
@@ -18,6 +18,18 @@ Der Quellcode im Repository ist **kein installierbares IntelliJ-Plugin**. Erst `
 * `@slidev/cli` und die Theme-Abhängigkeiten müssen im Präsentationsprojekt installiert sein.
 
 Der deklarierte Kompatibilitätsbereich umfasst Build 262 bis 263.*. Die Standard-Build-Basis bleibt IntelliJ IDEA 2026.2.3, damit das Plugin keine neueren APIs voraussetzt. Als zusätzliches Prüfziel ist der 2026.3-RC mit Build 263.7307.112 hinterlegt. Der vollständige Build, Plugin Verifier und ein Laufzeittest auf 2026.3 stehen noch aus. Ältere separate Community-Versionen, Remote Development, WSL und JetBrains Gateway sind noch kein unterstütztes Testziel.
+
+## Automatische Validierung ab 0.1.19
+
+Der Workflow [Validate plugin](https://github.com/johannesroesch/slidev-intellij/actions/workflows/validate.yml) ist für Pushes auf `main`, Pull Requests und manuelle Starts eingerichtet. Er baut mit JDK 25 gegen die konfigurierte IntelliJ-2026.2-Basis und das hinterlegte 2026.3-Prüfziel. `check buildPlugin` sowie Plugin Verifier laufen ohne Veröffentlichung in einem Plugin-Marktplatz. Plugin-ZIPs und Prüfberichte werden als Workflow-Artefakte bereitgestellt, soweit sie erzeugt wurden. Ein eingerichteter Workflow bedeutet noch keinen erfolgreichen Build; dafür den konkreten Lauf und seine Ergebnisse prüfen.
+
+Die Prozessprüfungen starten echte Node-Unterprozesse und lokale HTTP-Server. Sie prüfen Startfehler, stdout/stderr, vollständige letzte Fehlermeldungen vor einem Abbruch, Neustart, deaktiviertes Inspect sowie das Beenden von Kindprozessen. Dafür muss Node.js im Build-PATH stehen. Mit `-PslidevTestNode=/absoluter/pfad/node` lässt sich ein anderer Pfad verwenden. Für den optionalen Test gegen ein installiertes vollständiges Slidev-Projekt:
+
+```bash
+./gradlew previewServerTest -PslidevTestProject=/pfad/zum/slidev-projekt
+```
+
+Der Workflow installiert dafür isolierte Testumgebungen mit Slidev 52.14.1 beziehungsweise 52.20.1. Dieser Test ruft die echten Module einer importierten Folie ab, erzeugt einen Vue-Syntaxfehler, ordnet den Compiler-Ausschnitt der Originaldatei zu und prüft die Korrektur im selben Serverprozess. Das ersetzt keinen sichtbaren IntelliJ-/JCEF-Test von Fokus, Markierungen, Logfenster und Browseröffnung.
 
 ## Projekt bauen und testen
 
@@ -134,7 +146,7 @@ Fehlerliste und Status stehen in allen drei Ansichten zur Verfügung, auch im re
 
 Bei Änderungen an beteiligten Markdown-Dokumenten werden die bisherigen Preview-Diagnosen entfernt. Während ungespeicherter Änderungen werden keine neuen Serverpositionen eingetragen. Bereits eingeplante Ausgaben älterer Dokumentstände und Ausgaben einer ersetzten Sitzung werden nicht erneut als aktuelle Diagnose übernommen. Nach dem Speichern kann Slidev über sein normales Hot Reload neue Fehler melden. Ein fehlender Fehlereintrag bedeutet nicht, dass die gesamte Präsentation erfolgreich kompiliert wurde. Manche Module werden erst beim Aufrufen einer Folie kompiliert. **Check build** bleibt für eine vollständige Build-Prüfung verfügbar und zeigt seine Ergebnisse getrennt mit **[Build]** an.
 
-Die Auswertung verarbeitet die getesteten Vite-7-/Vite-8-Textformate, keine strukturierte Fehler-API. Sie speichert höchstens 100 aktuelle Meldungen. Virtuelle Folienpositionen bleiben eine folienrelative Heuristik ohne Transform-Source-Maps. Meldungen ohne passende Position, aus eigenen Komponenten oder bei nicht verfügbarem Deck-Mapping bleiben als Text mit den gemeldeten Koordinaten und im Log sichtbar. Sie erhalten keine erfundene Markdown-Markierung. Browser-JavaScript-Ausnahmen werden nicht als Compilerfehler erfasst. Ein Serverabbruch erfordert weiterhin einen manuellen Neustart.
+Die Auswertung verarbeitet die getesteten Vite-7-/Vite-8-Textformate, keine strukturierte Fehler-API. Sie speichert höchstens 100 aktuelle Meldungen. Ab 0.1.19 wird ein vorhandener Compiler-Codeausschnitt zusätzlich mit dem Originaltext der betroffenen Folie verglichen. Bei einer eindeutigen Übereinstimmung werden verschobene Zeilen und zusätzliche HTML-Wrapper, etwa `<p>`, berücksichtigt. Bei mehrfach vorkommendem oder verändertem Ausschnitt wird keine Stelle geraten. Ohne Codeausschnitt bleiben virtuelle Folienpositionen eine folienrelative Heuristik. Das ist weiterhin keine Zuordnung über Transform-Source-Maps. Meldungen ohne passende Position, aus eigenen Komponenten oder bei nicht verfügbarem Deck-Mapping bleiben als Text mit den gemeldeten Koordinaten und im Log sichtbar. Sie erhalten keine erfundene Markdown-Markierung. Browser-JavaScript-Ausnahmen werden nicht als Compilerfehler erfasst. Ein Serverabbruch erfordert weiterhin einen manuellen Neustart.
 
 ## Build prüfen und Fehler anzeigen
 

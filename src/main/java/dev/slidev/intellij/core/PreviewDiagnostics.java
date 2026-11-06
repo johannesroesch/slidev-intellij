@@ -10,17 +10,26 @@ public final class PreviewDiagnostics {
     private static final Pattern GENERIC=Pattern.compile("^(?:SyntaxError|RolldownError|Error|YAMLException|YAMLParseError):\\s*(.+)");
     private static final Pattern POSITION=Pattern.compile("^(.+?)(?::(\\d+):(\\d+)|\\s+\\((\\d+):(\\d+)\\))\\s*(?::\\s*(.*))?$");
     private static final Pattern VIRTUAL=Pattern.compile("^(.+\\.(?:md|markdown))__slidev_(\\d+)\\.md$");
+    private static final Pattern CODE_FRAME=Pattern.compile("^\\s*(?:>\\s*)?(\\d+)\\s*\\| ?(.*)$");
+    private final Map<BuildDiagnostics.Diagnostic,String> frames=new HashMap<>();
     private final List<BuildDiagnostics.Diagnostic> diagnostics=new ArrayList<>();
     private String message;
     private BuildDiagnostics.Diagnostic pending;
 
     public List<BuildDiagnostics.Diagnostic> diagnostics(){return List.copyOf(diagnostics);}
-    public void clear(){diagnostics.clear();message=null;pending=null;}
+    public void clear(){diagnostics.clear();frames.clear();message=null;pending=null;}
     public boolean accept(String output) {
         if(output==null)return false;
-        var before=diagnostics();
+        var before=diagnostics();boolean frameChanged=false;
         for(String raw:BuildDiagnostics.clean(output).split("\n")) {
             if(raw.length()>16384)continue;
+            var codeFrame=CODE_FRAME.matcher(raw);
+            if(codeFrame.matches()) {
+                try {if(pending!=null && Integer.parseInt(codeFrame.group(1))==pending.line()) {
+                    String prior=frames.put(pending,codeFrame.group(2));frameChanged|=!Objects.equals(prior,codeFrame.group(2));
+                }}catch(NumberFormatException ignored){}
+                continue;
+            }
             String text=raw.strip();if(text.isEmpty() || text.startsWith("at ") || text.matches("\\d+\\s*\\|.*") || text.startsWith("^"))continue;
             var header=HEADER.matcher(text);
             if(header.matches()) {begin(header.group(1));continue;}
@@ -47,7 +56,7 @@ public final class PreviewDiagnostics {
                 }
             }
         }
-        return !before.equals(diagnostics);
+        return frameChanged || !before.equals(diagnostics);
     }
     private void begin(String text) {
         message=text.length()>2000?text.substring(0,2000):text;pending=null;
@@ -72,6 +81,37 @@ public final class PreviewDiagnostics {
         diagnostics.removeIf(item -> item.equals(next) || (!next.path().isEmpty() && item.path().equals(next.path()) && item.slide()==next.slide() && item.line()==next.line() && item.column()==next.column()));
         diagnostics.add(next);pending=next;
         if(diagnostics.size()>100)diagnostics.remove(0);
+        frames.keySet().retainAll(diagnostics);
+    }
+    /** Match a compiler excerpt to one source line, accounting for generated <p> wrappers.
+     * No Source Map is implied: ambiguous/changed excerpts deliberately stay unmapped. */
+    public Optional<ImportedDeck.MappedDiagnostic> locateCurrent(ImportedDeck.Snapshot deck,BuildDiagnostics.Diagnostic diagnostic) {
+        String frame=frames.get(diagnostic);if(frame==null)return locate(deck,diagnostic);
+        var anchor=locate(deck,new BuildDiagnostics.Diagnostic(diagnostic.path(),diagnostic.slide(),1,1,diagnostic.message()));
+        if(anchor.isEmpty())return Optional.empty();
+        Path path=anchor.get().path();String text=deck.sources().get(path);int begin=0,end=text.length();
+        if(diagnostic.slide()>0){var slide=deck.byNumber(diagnostic.slide()).orElseThrow();begin=slide.source().contentStart();end=slide.source().end();}
+        BuildDiagnostics.Location found=null;
+        for(int start=begin;start<end;) {
+            int finish=text.indexOf('\n',start);if(finish<0 || finish>end)finish=end;
+            String raw=text.substring(start,finish).replace("\r", ""),line=raw.strip();
+            if(line.length()>=3) {
+                int generated=frame.indexOf(line);
+                if(generated>=0 && generated==frame.lastIndexOf(line) &&
+                    frame.substring(0,generated).matches("(?:\\s*<[^>]+>)*\\s*") &&
+                    frame.substring(generated+line.length()).matches("(?:\\s*<[^>]+>)*\\s*")) {
+                    int relative=diagnostic.column()-1-generated;
+                    if(relative>=0 && relative<line.length()) {
+                        if(found!=null)return Optional.empty();
+                        int indentation=raw.length()-raw.stripLeading().length(),offset=start+indentation+relative;
+                        int originalLine=1;for(int i=0;i<start;i++)if(text.charAt(i)=='\n')originalLine++;
+                        found=new BuildDiagnostics.Location(offset,originalLine,indentation+relative+1);
+                    }
+                }
+            }
+            start=finish+1;
+        }
+        return found==null?Optional.empty():Optional.of(new ImportedDeck.MappedDiagnostic(path,found));
     }
     public static Optional<ImportedDeck.MappedDiagnostic> locate(ImportedDeck.Snapshot deck,BuildDiagnostics.Diagnostic diagnostic) {
         if(deck==null || diagnostic.path().isEmpty())return Optional.empty();

@@ -633,3 +633,44 @@ Manual acceptance:
 Optional fixture commands:
   node scripts/test-inspect.cjs /path/to/vite7-inspect11-project
   node scripts/test-inspect.cjs /path/to/vite8-inspect12-devtools-project devtools
+
+## 0.1.19: Process lifecycle and full Slidev acceptance fixture
+
+* Moved the process implementation into core.PreviewServer with an injected parallel
+  executor. SlidevServer is a thin IntelliJ thread-pool adapter; production and the
+  standalone process tests use the same process/HTTP/log/termination code.
+* Found and fixed a race: server exit could notify the UI before its reader had
+  consumed the final stdout/stderr. Exit/startup-failure paths now wait up to five
+  seconds for the stream to drain. Repeated close requests are idempotent.
+* Real Slidev 52.20.1 revealed a gap missed by the earlier Vite-only fixtures:
+  the imported Markdown expression on original line 3 is reported on generated
+  line 4 with an added <p> wrapper. Live diagnostics now retain the compiler code
+  excerpt and match it to one source line in the validated target slide. Column
+  offsets account for generated HTML wrappers and original indentation. Changed,
+  ambiguous or non-wrapper partial matches stay unmapped. This is not Source Maps.
+* Added a GitHub Actions workflow with JDK 25, Node 24, SDK builds/checks for both
+  configured IDE targets, full Slidev fixtures and Plugin Verifier. It uploads
+  plugin ZIPs/reports when present and has read-only repository permissions.
+  Workflow configuration alone does not establish successful CI results.
+
+Executed locally:
+* PASS: ECJ/Java 17 compilation of all core classes and standalone tests.
+* PASS: 31 live diagnostic checks, including incremental compiler excerpts, generated
+  line/HTML-column shifts, repeated text, changed text and rejected partial matches.
+* PASS: 30 real subprocess/HTTP/lifecycle checks, separately with complete installed
+  Slidev 52.14.1 and 52.20.1 CLI/theme: inspect argument propagation through a fake CLI fixture, paths
+  with spaces, /1 vs root, startup/session crashes, complete stderr/stdout tail,
+  restart retaining prior log, repeated close, descendant cleanup, cancellation,
+  dependency errors, and actual imported-slide transform failure + correction in
+  the same real Slidev server. The actual module is fetched through Slidev's facade,
+  using its emitted source import rather than an invented virtual request path.
+* PASS: existing 43 parser, 49 metadata, 68 completion, 33 expression, 113 reference
+  and 21 quick-fix/deck checks, plus headless Swing and browser bridge fixtures.
+* BLOCKED locally: only Java 17, no JDK 25/IDE SDK or visible native IDE. Correcting
+  the Java proxy options still gives Connection refused. A curl HEAD can reach the
+  distribution but does not establish that Gradle dependency resolution works.
+  No native IDE installation, highlighting click, focus, modeless log-window or
+  Inspect browser-opening test has been performed here.
+
+The CI workflow and its concrete run results must be inspected separately. Native
+IntelliJ/JCEF acceptance cases from 0.1.16-0.1.18 remain open even if CI passes.

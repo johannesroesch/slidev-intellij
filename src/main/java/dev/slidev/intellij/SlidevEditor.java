@@ -385,8 +385,9 @@ public final class SlidevEditor extends UserDataHolderBase implements TextEditor
     }
     private void refreshPreviewIssues() {
         previewIssues.clear();
+        boolean canMap=deck!=null && !previewInputsDirty && SlidevDeckSupport.matches(deck);
         if(previewDiagnostics!=null)for(var diagnostic:previewDiagnostics.diagnostics()) {
-            var mapped=deck!=null && !previewInputsDirty && SlidevDeckSupport.matches(deck)?PreviewDiagnostics.locate(deck,diagnostic):java.util.Optional.<ImportedDeck.MappedDiagnostic>empty();
+            var mapped=canMap?previewDiagnostics.locateCurrent(deck,diagnostic):java.util.Optional.<ImportedDeck.MappedDiagnostic>empty();
             String position=mapped.map(value -> value.path().getFileName()+": line "+value.location().line()+", column "+value.location().column()+(diagnostic.slide()>0?" (slide-relative mapping)":""))
                 .orElse(diagnostic.path().isEmpty()?"No source position":diagnostic.path()+(diagnostic.slide()>0?", slide "+diagnostic.slide():"")+(diagnostic.line()>0?", reported "+diagnostic.line()+":"+diagnostic.column():""));
             previewIssues.add(new BuildIssue("[Preview] "+position+": "+diagnostic.message(),mapped.map(ImportedDeck.MappedDiagnostic::path).orElse(null),mapped.map(value -> value.location().offset()).orElse(-1)));

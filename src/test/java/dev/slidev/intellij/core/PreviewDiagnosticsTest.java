@@ -15,7 +15,8 @@ public final class PreviewDiagnosticsTest {
         check(stream.accept("  File: /a path/parts/child.md__slidev_2.md:5:7"),"Location arrives separately");
         var error=stream.diagnostics().get(0);
         check(stream.diagnostics().size()==1 && error.path().equals("/a path/parts/child.md") && error.slide()==2 && error.line()==5 && error.column()==7,"Virtual source coordinates parsed");
-        check(!stream.accept("    at createCompilerError (/node_modules/@vue/compiler-core/core.js:12:3)\n  5 | {{ 1 + }}\n    |      ^"),"Stack and code-frame lines ignored");
+        check(!stream.accept("    at createCompilerError (/node_modules/@vue/compiler-core/core.js:12:3)"),"Stack frames ignored");
+        check(stream.accept("  5 | {{ 1 + }}\n    |      ^") && stream.diagnostics().size()==1,"Compiler excerpt updates mapping evidence without adding errors");
         stream.accept("[vite] Internal server error: Error parsing JavaScript expression: Unexpected token (1:4)\n  File: /a path/parts/child.md__slidev_2.md:5:7");
         check(stream.diagnostics().size()==1,"Pre-transform/internal repeats deduplicated");
         stream.accept("[vite] Internal server error: Second error\nFile: C:\\Deck\\parts\\other.markdown__slidev_3.md?vue&type=template:8:2");
@@ -50,6 +51,21 @@ public final class PreviewDiagnosticsTest {
         check(PreviewDiagnostics.locate(deck,new BuildDiagnostics.Diagnostic(entry.getParent().resolve("Chart.vue").toString(),0,1,1,"bad")).isEmpty(),"Non-deck source not assigned a guessed Markdown location");
         var invalid=new ImportedDeck.Snapshot(entry,deck.slides(),deck.sources(),deck.watched(),List.of(new ImportedDeck.Issue(entry,0,"unavailable")));
         check(PreviewDiagnostics.locate(invalid,new BuildDiagnostics.Diagnostic(child.toString(),2,3,4,"bad")).isEmpty(),"Unreliable global mapping disabled");
+        stream.clear();stream.accept("[vite] Internal server error: Invalid expression\nFile: "+child+"__slidev_2.md:4:7");
+        var generated=stream.diagnostics().get(0);
+        check(stream.accept("  4 | <p>{{ 1 + }}</p>"),"Generated wrapper frame accepted incrementally");
+        var exact=stream.locateCurrent(deck,generated).orElseThrow();
+        check(exact.location().line()==6 && exact.location().column()==4 && exact.location().offset()==source.indexOf("{{")+3,"Unique compiler excerpt corrects shifted line and HTML wrapper column");
+        String duplicate=source+"{{ 1 + }}\r\n";
+        var duplicateSlide=new ImportedDeck.Slide(2,child,new DeckParser.Slide(1,0,duplicate.length(),"Child",null,content),List.of());
+        var duplicateDeck=new ImportedDeck.Snapshot(entry,List.of(rootSlide,duplicateSlide),Map.of(entry,main,child,duplicate),Set.of(entry,child),List.of());
+        check(stream.locateCurrent(duplicateDeck,generated).isEmpty(),"Repeated excerpt never chooses an arbitrary occurrence");
+        var changedDeck=new ImportedDeck.Snapshot(entry,List.of(rootSlide,childSlide),Map.of(entry,main,child,source.replace("1 +", "2 +")),Set.of(entry,child),List.of());
+        check(stream.locateCurrent(changedDeck,generated).isEmpty(),"Changed source does not match an old compiler excerpt");
+        stream.clear();stream.accept("[vite] Internal server error: bad\nFile: "+child+"__slidev_2.md:3:1\n3 | <p>{{ 1 + }}</p>");
+        check(stream.locateCurrent(deck,stream.diagnostics().get(0)).isEmpty(),"Error inside generated wrapper is not assigned a source character");
+        stream.clear();stream.accept("[vite] Internal server error: bad\nFile: "+child+"__slidev_2.md:3:7\n3 | arbitrary {{ 1 + }} suffix");
+        check(stream.locateCurrent(deck,stream.diagnostics().get(0)).isEmpty(),"Arbitrary partial matches are not treated as generated HTML wrappers");
         for(String file:args) {
             stream.clear();for(String line:Files.readAllLines(Path.of(file)))stream.accept(line);
             check(stream.diagnostics().size()==1,"Actual Vite log yields exactly one diagnostic");
